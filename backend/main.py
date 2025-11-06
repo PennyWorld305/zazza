@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import timedelta
 import uvicorn
+import requests
+import asyncio
+import logging
 
 from database import get_db, User, TelegramBot, Employee, ActiveTicket, ArchiveTicket, EmployeeChat, Note, TicketMessage, create_tables
 from auth import verify_password, get_password_hash, create_access_token, verify_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -27,6 +30,43 @@ frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fronte
 app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
 # Security управляется в auth.py
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
+# Функция для отправки сообщений в Telegram
+def send_telegram_message(user_id: str, message: str, db: Session) -> bool:
+    """Отправляет сообщение пользователю в Telegram через API бота"""
+    try:
+        # Получаем активного бота из БД (берем первого активного)
+        bot = db.query(TelegramBot).filter(TelegramBot.is_active == True).first()
+        if not bot:
+            logger.error("Не найден активный бот для отправки сообщения")
+            return False
+        
+        # URL для Telegram Bot API
+        url = f"https://api.telegram.org/bot{bot.token}/sendMessage"
+        
+        # Данные для отправки
+        data = {
+            "chat_id": user_id,
+            "text": message,
+            "parse_mode": "HTML"  # Поддержка HTML форматирования
+        }
+        
+        # Отправляем запрос к Telegram API
+        response = requests.post(url, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            logger.info(f"Сообщение отправлено пользователю {user_id}")
+            return True
+        else:
+            logger.error(f"Ошибка отправки сообщения: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Исключение при отправке сообщения: {e}")
+        return False
 
 # Models
 class UserLogin(BaseModel):
@@ -359,9 +399,13 @@ def send_message_to_ticket(ticket_id: int, request: SendMessageRequest, db: Sess
     db.add(message)
     db.commit()
     
-    # TODO: Отправить сообщение пользователю через Telegram Bot API
+    # Отправляем сообщение пользователю через Telegram Bot API
+    success = send_telegram_message(ticket.telegram_user_id, request.content, db)
     
-    return {"message": "Сообщение отправлено"}
+    if success:
+        return {"message": "Сообщение отправлено"}
+    else:
+        raise HTTPException(status_code=500, detail="Ошибка отправки сообщения в Telegram")
 
 if __name__ == "__main__":
     create_tables()
