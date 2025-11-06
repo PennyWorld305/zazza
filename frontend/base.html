@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZAZA - Admin Panel</title>
+    <title>ZAZA - Админ панель</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -16,78 +16,289 @@
         <nav class="sidebar-nav">
             <ul>
                 <li class="nav-item">
-                    <a href="/static/dashboard.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="dashboard" id="nav-dashboard">
                         <span>🏠</span>
                         <span>Главная</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tgbot.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="tgbot" id="nav-tgbot">
                         <span>🤖</span>
                         <span>Телеграмм боты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="employees">
+                    <a href="#" class="nav-link" data-section="employees" id="nav-employees">
                         <span>👥</span>
                         <span>Сотрудники</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="active-tickets">
+                    <a href="#" class="nav-link" data-section="tickets" id="nav-tickets">
                         <span>🎯</span>
                         <span>Активные тикеты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="archive-tickets">
-                        <span>�</span>
+                    <a href="#" class="nav-link" data-section="archive" id="nav-archive">
+                        <span>📋</span>
                         <span>Архив тикетов</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="chat">
+                    <a href="#" class="nav-link" data-section="chat" id="nav-chat">
                         <span>💬</span>
                         <span>Чат сотрудников</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="notes">
+                    <a href="#" class="nav-link" data-section="notes" id="nav-notes">
                         <span>📝</span>
                         <span>Заметки</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="profile" id="nav-profile">
+                        <span>👤</span>
+                        <span>Профиль</span>
                     </a>
                 </li>
             </ul>
         </nav>
     </aside>
 
-    <div class="main-wrapper">
-        <header class="header">
-            <div class="header-left">
-                
-                <h1 id="page-title">Главная</h1>
-            </div>
-            
-            <div class="header-right">
-                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
-                <div class="user-menu">
-                    <button class="user-btn" id="profileBtn">
-                        <span class="user-avatar">👤</span>
-                        <span id="username">Admin</span>
-                    </button>
-                </div>
-                <button class="btn btn-danger" id="logoutBtn">
-                    Выйти
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <h1 id="page-title">Главная</h1>
+        </div>
+        
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+            <div class="user-menu">
+                <button class="user-btn" id="profileBtn">
+                    <span class="user-avatar">👤</span>
+                    <span id="username">Admin</span>
                 </button>
             </div>
-        </header>
+            <button class="btn btn-danger" id="logoutBtn">
+                Выйти
+            </button>
+        </div>
+    </header>
 
-        <main class="main-content" id="mainContent">
-            <!-- Контент страницы будет здесь -->
-        </main>
-    </div>
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Контент будет загружаться сюда -->
+    </main>
 
     <!-- Общий JavaScript -->
+    <script src="/static/auth.js"></script>
     <script src="/static/base.js"></script>
+    <script>
+        // Инициализация страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем авторизацию
+            if (!checkAuth()) {
+                return;
+            }
+
+            // Настройка навигации
+            setupNavigation();
+            
+            // Загружаем дашборд по умолчанию
+            loadSection('dashboard');
+            
+            // Настройка кнопок в хедере
+            setupHeaderButtons();
+        });
+
+        // Настройка навигации
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link[data-section]');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const section = this.getAttribute('data-section');
+                    loadSection(section);
+                    
+                    // Обновляем активное состояние навигации
+                    updateActiveNav(section);
+                });
+            });
+        }
+
+        // Обновление активной навигации
+        function updateActiveNav(section) {
+            // Убираем активный класс со всех ссылок
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Добавляем активный класс к текущей
+            const activeLink = document.getElementById(`nav-${section}`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+        }
+
+        // Загрузка контента раздела
+        async function loadSection(section) {
+            const mainContent = document.getElementById('mainContent');
+            const pageTitle = document.getElementById('page-title');
+            
+            try {
+                // Показываем индикатор загрузки
+                mainContent.innerHTML = '<div style="text-align: center; padding: 50px;"><div>Загрузка...</div></div>';
+                
+                // Определяем какой файл загружать
+                let contentFile = '';
+                let pageClass = '';
+                let title = '';
+                
+                switch(section) {
+                    case 'dashboard':
+                        contentFile = 'dashboard-content.html';
+                        pageClass = 'page-dashboard';
+                        title = 'Главная';
+                        break;
+                    case 'tgbot':
+                        contentFile = 'tgbot-content.html';
+                        pageClass = 'page-tgbot';
+                        title = 'Телеграмм боты';
+                        break;
+                    case 'employees':
+                        contentFile = 'employees-content.html';
+                        pageClass = 'page-employees';
+                        title = 'Сотрудники';
+                        break;
+                    case 'tickets':
+                        contentFile = 'tickets-content.html';
+                        pageClass = 'page-tickets';
+                        title = 'Активные тикеты';
+                        break;
+                    case 'archive':
+                        contentFile = 'archive-content.html';
+                        pageClass = 'page-archive';
+                        title = 'Архив тикетов';
+                        break;
+                    case 'profile':
+                        contentFile = 'profile-content.html';
+                        pageClass = 'page-profile';
+                        title = 'Профиль';
+                        break;
+                    default:
+                        throw new Error(`Неизвестный раздел: ${section}`);
+                }
+                
+                // Загружаем контент
+                const response = await fetch(`/static/${contentFile}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const html = await response.text();
+                mainContent.innerHTML = html;
+                
+                // Обновляем класс body и заголовок
+                document.body.className = pageClass;
+                pageTitle.textContent = title;
+                
+                // Загружаем JS для раздела если нужно
+                await loadSectionScript(section);
+                
+            } catch (error) {
+                console.error('Ошибка загрузки раздела:', error);
+                mainContent.innerHTML = `
+                    <div style="text-align: center; padding: 50px; color: #ef4444;">
+                        <h3>Ошибка загрузки</h3>
+                        <p>Не удалось загрузить раздел "${section}"</p>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Загрузка JS файла для раздела
+        async function loadSectionScript(section) {
+            // Удаляем предыдущий скрипт
+            const existingScript = document.getElementById('section-script');
+            if (existingScript) {
+                existingScript.remove();
+            }
+
+            // Определяем нужен ли JS для раздела
+            const scriptMap = {
+                'dashboard': 'dashboard.js',
+                'tgbot': 'tgbot.js'
+            };
+
+            if (scriptMap[section]) {
+                const script = document.createElement('script');
+                script.id = 'section-script';
+                script.src = `/static/${scriptMap[section]}`;
+                
+                return new Promise((resolve, reject) => {
+                    script.onload = () => {
+                        // Инициализируем раздел если есть функция инициализации
+                        const initFunctionName = `init${section.charAt(0).toUpperCase() + section.slice(1)}`;
+                        if (window[initFunctionName]) {
+                            window[initFunctionName]();
+                        }
+                        resolve();
+                    };
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
+        }
+
+        // Настройка кнопок в хедере
+        function setupHeaderButtons() {
+            // Кнопка профиля
+            const profileBtn = document.getElementById('profileBtn');
+            if (profileBtn) {
+                profileBtn.addEventListener('click', function() {
+                    loadSection('profile');
+                    updateActiveNav('profile');
+                });
+            }
+            
+            // Кнопка выхода
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                });
+            }
+            
+            // Переключатель темы (если есть логика)
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    document.body.classList.toggle('dark-theme');
+                    const isDark = document.body.classList.contains('dark-theme');
+                    this.textContent = isDark ? '☀️' : '🌙';
+                    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                });
+                
+                // Загружаем сохраненную тему
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark-theme');
+                    themeToggle.textContent = '☀️';
+                }
+            }
+        }
+
+        // Функция для показа профиля (для совместимости с существующим кодом)
+        function showProfile() {
+            loadSection('profile');
+            updateActiveNav('profile');
+        }
+    </script>
 </body>
 </html>

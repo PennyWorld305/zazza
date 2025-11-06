@@ -160,17 +160,67 @@ class AuthManager {
             });
 
             if (response.ok) {
-                // Token is valid, redirect to dashboard
-                window.location.href = '/static/dashboard.html';
+                // Token is valid, but only redirect if we're on login page
+                const currentPath = window.location.pathname;
+                if (currentPath === '/' || currentPath === '/login.html' || currentPath === '/static/login.html') {
+                    window.location.href = '/static/dashboard.html';
+                }
+                // If we're on other pages (like profile, tickets, etc.), don't redirect
             } else {
                 // Token is invalid, remove it
                 localStorage.removeItem('access_token');
+                // Only redirect to login if we're not already there
+                const currentPath = window.location.pathname;
+                if (currentPath !== '/' && currentPath !== '/login.html' && currentPath !== '/static/login.html') {
+                    window.location.href = '/static/login.html';
+                }
             }
         } catch (error) {
             console.error('Token verification error:', error);
             localStorage.removeItem('access_token');
+            // Only redirect to login if we're not already there
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/' && currentPath !== '/login.html' && currentPath !== '/static/login.html') {
+                window.location.href = '/static/login.html';
+            }
         }
     }
+}
+
+// Standalone function for checking auth without redirect
+async function checkAuth() {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        window.location.href = '/static/login.html';
+        return false;
+    }
+
+    try {
+        const response = await fetch('http://localhost:8000/api/me', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            localStorage.removeItem('access_token');
+            window.location.href = '/static/login.html';
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Auth check error:', error);
+        localStorage.removeItem('access_token');
+        window.location.href = '/static/login.html';
+        return false;
+    }
+}
+
+// Logout function
+function logout() {
+    localStorage.removeItem('access_token');
+    window.location.href = '/static/login.html';
 }
 
 // Initialize auth manager when DOM is loaded

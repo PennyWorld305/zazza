@@ -79,7 +79,7 @@ class BaseDashboardManager {
     updateUserDisplay() {
         const usernameEl = document.getElementById('username');
         if (usernameEl && this.currentUser) {
-            usernameEl.textContent = this.currentUser.username;
+            usernameEl.textContent = this.currentUser.display_name || this.currentUser.username;
         }
     }
 
@@ -131,7 +131,7 @@ class BaseDashboardManager {
     }
 
     showProfile() {
-        alert('Профиль пользователя - функция в разработке');
+        window.location.href = '/static/profile.html';
     }
 
     showSuccess(message) {

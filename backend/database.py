@@ -28,6 +28,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
+    display_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class TelegramBot(Base):

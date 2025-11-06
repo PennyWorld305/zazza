@@ -165,6 +165,22 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class UserProfileUpdate(BaseModel):
+    display_name: str
+
+class UserPasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class UserProfile(BaseModel):
+    id: int
+    username: str
+    display_name: Optional[str] = None
+    is_active: bool
+    
+    class Config:
+        orm_mode = True
+
 # Telegram Bot models
 class TelegramBotCreate(BaseModel):
     name: str
@@ -203,6 +219,14 @@ async def dashboard():
 async def tgbot():
     return FileResponse(os.path.join(frontend_path, "tgbot.html"))
 
+@app.get("/profile.html")
+async def profile():
+    return FileResponse(os.path.join(frontend_path, "profile.html"))
+
+@app.get("/static/profile.html")
+async def static_profile():
+    return FileResponse(os.path.join(frontend_path, "profile.html"))
+
 @app.post("/api/login", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == user_data.username).first()
@@ -221,8 +245,66 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 # Убираем эндпоинт регистрации - создаем пользователей только через админа
 
 @app.get("/api/me")
-def read_users_me(current_user: dict = Depends(get_current_user)):
-    return {"username": current_user["username"]}
+def read_users_me(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == current_user["username"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "id": user.id,
+        "username": user.username,
+        "display_name": user.display_name or user.username,
+        "is_active": user.is_active
+    }
+
+@app.put("/api/profile/update")
+def update_profile(
+    profile_data: UserProfileUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.username == current_user["username"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Обновляем отображаемое имя
+    user.display_name = profile_data.display_name.strip()
+    
+    try:
+        db.commit()
+        db.refresh(user)
+        return {"message": "Profile updated successfully", "display_name": user.display_name}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+
+@app.put("/api/profile/change-password")
+def change_password(
+    password_data: UserPasswordChange,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.username == current_user["username"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Проверяем текущий пароль
+    if not verify_password(password_data.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Проверяем длину нового пароля
+    if len(password_data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long")
+    
+    # Обновляем пароль
+    user.hashed_password = get_password_hash(password_data.new_password)
+    
+    try:
+        db.commit()
+        return {"message": "Password changed successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to change password")
 
 # Telegram Bots endpoints
 @app.get("/api/bots")

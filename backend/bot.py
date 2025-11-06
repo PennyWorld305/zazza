@@ -44,9 +44,6 @@ class States(Enum):
     CATEGORY_SELECTION = 1
     # Проблемы с оплатой криптовалютой
     CRYPTO_ORDER_NUMBER = 10
-    CRYPTO_SEND_ADDRESS = 11
-    CRYPTO_AMOUNT = 12
-    CRYPTO_DESCRIPTION = 13
     # Диспут
     DISPUTE_ORDER_NUMBER = 20
     DISPUTE_VIDEO = 21
@@ -57,8 +54,6 @@ class States(Enum):
     GENERAL_QUESTION = 30
     # Трудоустройство
     JOB_ABOUT = 40
-    JOB_POSITION = 41
-    JOB_EXPERIENCE = 42
 
 @dataclass
 class TicketData:
@@ -172,15 +167,6 @@ class ZAZABot:
                 States.CRYPTO_ORDER_NUMBER: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.crypto_order_number)
                 ],
-                States.CRYPTO_SEND_ADDRESS: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.crypto_send_address)
-                ],
-                States.CRYPTO_AMOUNT: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.crypto_amount)
-                ],
-                States.CRYPTO_DESCRIPTION: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.crypto_description)
-                ],
                 # Диспут
                 States.DISPUTE_ORDER_NUMBER: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.dispute_order_number)
@@ -208,12 +194,6 @@ class ZAZABot:
                 # Трудоустройство
                 States.JOB_ABOUT: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.job_about)
-                ],
-                States.JOB_POSITION: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.job_position)
-                ],
-                States.JOB_EXPERIENCE: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.job_experience)
                 ],
             },
             fallbacks=[
@@ -287,12 +267,19 @@ class ZAZABot:
         
         if category_text == "💳 Проблемы с оплатой криптовалютой":
             self.ticket_data[user_id].category = "crypto_payment"
+            
+            # Создаем тикет сразу при выборе категории
+            ticket_id = await self.create_ticket(user_id, "crypto_payment")
+            
             await update.message.reply_text(
-                "💳 **Проблемы с оплатой криптовалютой**\n\n"
-                "Для решения вашей проблемы мне потребуется некоторая информация.\n"
-                "Пожалуйста, укажите **номер заказа**:",
+                f"💳 **Проблемы с оплатой криптовалютой #{ticket_id}**\n\n"
+                f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                f"Укажите номер заказа, TXID (хэш) транзакции вашей на наш адрес:",
                 reply_markup=ReplyKeyboardRemove()
             )
+            
+            # Сохраняем ID тикета
+            self.ticket_data[user_id].data['ticket_id'] = ticket_id
             return States.CRYPTO_ORDER_NUMBER
             
         elif category_text == "⚖️ Диспут":
@@ -317,21 +304,36 @@ class ZAZABot:
             
         elif category_text == "❓ Общие вопросы":
             self.ticket_data[user_id].category = "general"
+            
+            # Создаем тикет сразу при выборе категории
+            ticket_id = await self.create_ticket(user_id, "general")
+            
             await update.message.reply_text(
-                "❓ **Общие вопросы**\n\n"
-                "Опишите ваш вопрос подробно. После этого я создам обращение, "
-                "и наш оператор ответит вам в ближайшее время:",
+                f"❓ **Общие вопросы #{ticket_id}**\n\n"
+                f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                f"Напишите свой вопрос и ожидайте когда вам ответят:",
                 reply_markup=ReplyKeyboardRemove()
             )
+            
+            # Сохраняем ID тикета
+            self.ticket_data[user_id].data['ticket_id'] = ticket_id
             return States.GENERAL_QUESTION
             
         elif category_text == "💼 Трудоустройство":
             self.ticket_data[user_id].category = "employment"
+            
+            # Создаем тикет сразу при выборе категории
+            ticket_id = await self.create_ticket(user_id, "employment")
+            
             await update.message.reply_text(
-                "💼 **Трудоустройство**\n\n"
-                "Расскажите немного о себе, вашем опыте и навыках:",
+                f"💼 **Трудоустройство #{ticket_id}**\n\n"
+                f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                f"Распишите должность на которую хотите, опыт работы и все что считаете нужным:",
                 reply_markup=ReplyKeyboardRemove()
             )
+            
+            # Сохраняем ID тикета
+            self.ticket_data[user_id].data['ticket_id'] = ticket_id
             return States.JOB_ABOUT
         
         else:
@@ -343,111 +345,20 @@ class ZAZABot:
     # === ОБРАБОТЧИКИ ДЛЯ КАТЕГОРИИ "ПРОБЛЕМЫ С ОПЛАТОЙ КРИПТОВАЛЮТОЙ" ===
     
     async def crypto_order_number(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение номера заказа для криптоплатежей"""
+        """Получение номера заказа и TXID для криптоплатежей"""
         user_id = update.effective_user.id
-        order_number = update.message.text
         
-        self.ticket_data[user_id].data['order_number'] = order_number
-        
-        await update.message.reply_text(
-            "Спасибо! Теперь укажите **адрес отправки криптовалюты**:"
-        )
-        return States.CRYPTO_SEND_ADDRESS
-
-    async def crypto_send_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение адреса отправки криптовалюты"""
-        user_id = update.effective_user.id
-        send_address = update.message.text
-        
-        self.ticket_data[user_id].data['send_address'] = send_address
-        
-        # Кнопки выбора валюты
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("₿ Bitcoin (BTC)", callback_data="crypto_btc")],
-            [InlineKeyboardButton("💎 Ethereum (ETH)", callback_data="crypto_eth")],
-            [InlineKeyboardButton("💵 USDT (TRC20)", callback_data="crypto_usdt_trc20")],
-            [InlineKeyboardButton("💵 USDT (ERC20)", callback_data="crypto_usdt_erc20")],
-            [InlineKeyboardButton("💸 Другая валюта", callback_data="crypto_other")],
-            [InlineKeyboardButton("❌ Отмена", callback_data="cancel")]
-        ])
-        
-        await update.message.reply_text(
-            "Отлично! Теперь выберите **криптовалюту** и укажите сумму:",
-            reply_markup=keyboard
-        )
-        return States.CRYPTO_AMOUNT
-
-    async def crypto_currency_selected(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Обработка выбора криптовалюты"""
-        query = update.callback_query
-        await query.answer()
-        
-        user_id = query.from_user.id
-        currency_data = query.data
-        
-        if currency_data == "cancel":
-            await query.edit_message_text("❌ Операция отменена. Для создания нового обращения используйте /start")
-            del self.ticket_data[user_id]
+        if user_id not in self.ticket_data:
+            await update.message.reply_text("Тикет не найден. Начните заново с /start")
             return ConversationHandler.END
         
-        # Определяем валюту
-        currency_map = {
-            "crypto_btc": "Bitcoin (BTC)",
-            "crypto_eth": "Ethereum (ETH)", 
-            "crypto_usdt_trc20": "USDT (TRC20)",
-            "crypto_usdt_erc20": "USDT (ERC20)",
-            "crypto_other": "Другая валюта"
-        }
+        ticket_id = self.ticket_data[user_id].data.get('ticket_id')
         
-        currency = currency_map.get(currency_data, "Не указана")
-        self.ticket_data[user_id].data['currency'] = currency
-        
-        if currency_data == "crypto_other":
-            await query.edit_message_text(
-                "Укажите название валюты и сумму.\n"
-                "Например: _100 LTC_ или _0.5 BNB_"
-            )
-        else:
-            await query.edit_message_text(
-                f"Валюта: **{currency}**\n\n"
-                f"Теперь укажите сумму.\n"
-                f"Например: _100_ или _0.05_"
-            )
-        
-        return States.CRYPTO_AMOUNT
-
-    async def crypto_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение суммы криптовалюты"""
-        user_id = update.effective_user.id
-        amount = update.message.text
-        
-        self.ticket_data[user_id].data['amount'] = amount
-        
-        # Кнопка отмены
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("❌ Отмена", callback_data="cancel")]
-        ])
+        # Сохраняем сообщение в БД
+        await self.save_ticket_message(ticket_id, user_id, update.message)
         
         await update.message.reply_text(
-            "Почти готово! Теперь опишите **проблему подробно**:",
-            reply_markup=keyboard
-        )
-        return States.CRYPTO_DESCRIPTION
-
-    async def crypto_description(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение описания проблемы с криптоплатежом и создание тикета"""
-        user_id = update.effective_user.id
-        description = update.message.text
-        
-        self.ticket_data[user_id].data['description'] = description
-        
-        # Создаем тикет в БД
-        ticket_id = await self.create_ticket(user_id, "crypto_payment")
-        
-        await update.message.reply_text(
-            f"✅ **Ваше обращение №{ticket_id} зарегистрировано!**\n\n"
-            f"Тема: Проблемы с оплатой криптовалютой\n"
-            f"Статус: В обработке\n\n"
+            f"✅ **Информация добавлена к тикету #{ticket_id}**\n\n"
             f"Ожидайте ответа оператора. Мы свяжемся с вами в ближайшее время!"
         )
         
@@ -702,19 +613,20 @@ class ZAZABot:
     # === ОБРАБОТЧИКИ ДЛЯ КАТЕГОРИИ "ОБЩИЕ ВОПРОСЫ" ===
     
     async def general_question(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение общего вопроса и создание тикета"""
+        """Получение общего вопроса"""
         user_id = update.effective_user.id
-        question = update.message.text
         
-        self.ticket_data[user_id].data['question'] = question
+        if user_id not in self.ticket_data:
+            await update.message.reply_text("Тикет не найден. Начните заново с /start")
+            return ConversationHandler.END
         
-        # Создаем тикет в БД
-        ticket_id = await self.create_ticket(user_id, "general")
+        ticket_id = self.ticket_data[user_id].data.get('ticket_id')
+        
+        # Сохраняем сообщение в БД
+        await self.save_ticket_message(ticket_id, user_id, update.message)
         
         await update.message.reply_text(
-            f"✅ **Ваше обращение №{ticket_id} зарегистрировано!**\n\n"
-            f"Тема: Общие вопросы\n"
-            f"Статус: В обработке\n\n"
+            f"✅ **Вопрос добавлен к тикету #{ticket_id}**\n\n"
             f"Ожидайте ответа оператора. После ответа откроется полноценный чат для общения!"
         )
         
@@ -725,43 +637,20 @@ class ZAZABot:
     # === ОБРАБОТЧИКИ ДЛЯ КАТЕГОРИИ "ТРУДОУСТРОЙСТВО" ===
     
     async def job_about(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение информации о себе для трудоустройства"""
+        """Получение всей информации о трудоустройстве одним сообщением"""
         user_id = update.effective_user.id
-        about = update.message.text
         
-        self.ticket_data[user_id].data['about'] = about
+        if user_id not in self.ticket_data:
+            await update.message.reply_text("Тикет не найден. Начните заново с /start")
+            return ConversationHandler.END
+        
+        ticket_id = self.ticket_data[user_id].data.get('ticket_id')
+        
+        # Сохраняем сообщение в БД
+        await self.save_ticket_message(ticket_id, user_id, update.message)
         
         await update.message.reply_text(
-            "Спасибо! Теперь укажите **желаемую вакансию или должность**:"
-        )
-        return States.JOB_POSITION
-
-    async def job_position(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение желаемой позиции"""
-        user_id = update.effective_user.id
-        position = update.message.text
-        
-        self.ticket_data[user_id].data['position'] = position
-        
-        await update.message.reply_text(
-            "Отлично! И последний вопрос - расскажите о вашем **опыте работы и навыках**:"
-        )
-        return States.JOB_EXPERIENCE
-
-    async def job_experience(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Получение опыта работы и создание тикета"""
-        user_id = update.effective_user.id
-        experience = update.message.text
-        
-        self.ticket_data[user_id].data['experience'] = experience
-        
-        # Создаем тикет в БД
-        ticket_id = await self.create_ticket(user_id, "employment")
-        
-        await update.message.reply_text(
-            f"✅ **Ваше обращение №{ticket_id} зарегистрировано!**\n\n"
-            f"Тема: Трудоустройство\n"
-            f"Статус: В обработке\n\n"
+            f"✅ **Информация добавлена к тикету #{ticket_id}**\n\n"
             f"Спасибо за вашу заявку! Наш HR-менеджер свяжется с вами в ближайшее время."
         )
         
@@ -800,40 +689,8 @@ class ZAZABot:
                     "employment": "Трудоустройство"
                 }
                 
-                # Формируем описание тикета
-                description_parts = [f"Тематика: {category_names.get(category, category)}"]
-                
-                if category == "crypto_payment":
-                    data = ticket_data.data
-                    description_parts.extend([
-                        f"Номер заказа: {data.get('order_number', 'Не указан')}",
-                        f"Адрес отправки: {data.get('send_address', 'Не указан')}",
-                        f"Сумма: {data.get('amount', 'Не указана')}",
-                        f"Описание проблемы: {data.get('description', 'Не указано')}"
-                    ])
-                
-                elif category == "dispute":
-                    data = ticket_data.data
-                    description_parts.extend([
-                        f"Номер заказа: {data.get('order_number', 'Не указан')}",
-                        f"Видео приложено: {'Да' if data.get('video_file_id') else 'Нет'}",
-                        f"Количество фото: {len(data.get('photos', []))}",
-                        f"Описание проблемы: {data.get('description', 'Не указано')}"
-                    ])
-                
-                elif category == "general":
-                    data = ticket_data.data
-                    description_parts.append(f"Вопрос: {data.get('question', 'Не указан')}")
-                
-                elif category == "employment":
-                    data = ticket_data.data
-                    description_parts.extend([
-                        f"О себе: {data.get('about', 'Не указано')}",
-                        f"Желаемая позиция: {data.get('position', 'Не указана')}",
-                        f"Опыт работы: {data.get('experience', 'Не указан')}"
-                    ])
-                
-                description = "\n".join(description_parts)
+                # Формируем базовое описание тикета (детали будут в сообщениях)
+                description = f"Тематика: {category_names.get(category, category)}\n\nДетали смотрите в сообщениях тикета."
                 
                 # Создаем тикет
                 new_ticket = ActiveTicket(

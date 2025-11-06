@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Телеграмм боты - ZAZA Admin Panel</title>
+    <title>Чат сотрудников - ZAZA Admin</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="page-tgbot">
+<body class="page-chat">
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -22,7 +22,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link active" data-section="tgbot" id="nav-tgbot">
+                    <a href="#" class="nav-link" data-section="tgbot" id="nav-tgbot">
                         <span>🤖</span>
                         <span>Телеграмм боты</span>
                     </a>
@@ -46,7 +46,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="chat" id="nav-chat">
+                    <a href="#" class="nav-link active" data-section="chat" id="nav-chat">
                         <span>💬</span>
                         <span>Чат сотрудников</span>
                     </a>
@@ -61,113 +61,48 @@
         </nav>
     </aside>
 
-    <div class="main-wrapper">
-        <header class="header">
-            <div class="header-left">
-               
-                <h1 id="page-title">Телеграмм боты</h1>
-            </div>
-            
-            <div class="header-right">
-                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
-                <div class="user-menu">
-                    <button class="user-btn" id="profileBtn">
-                        <span class="user-avatar">👤</span>
-                        <span id="username">Admin</span>
-                    </button>
-                </div>
-                <button class="btn btn-danger" id="logoutBtn">
-                    Выйти
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <h1 id="page-title">Чат сотрудников</h1>
+        </div>
+        
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+            <div class="user-menu">
+                <button class="user-btn" id="profileBtn">
+                    <span class="user-avatar">👤</span>
+                    <span id="username">Admin</span>
                 </button>
             </div>
-        </header>
+            <button class="btn btn-danger" id="logoutBtn">
+                Выйти
+            </button>
+        </div>
+    </header>
 
-        <main class="main-content">
-            <div class="container">
-                <div class="card">
-                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h2>🤖 Управление Telegram ботами</h2>
-                        <button class="btn btn-primary" onclick="openBotModal()">
-                            <span>+</span> Добавить бота
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-container">
-                            <table class="data-table bots-table" id="botsTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Имя бота</th>
-                                        <th>Telegram имя</th>
-                                        <th>Токен</th>
-                                        <th>Статус</th>
-                                        <th>Создан</th>
-                                        <th>Действия</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="botsTableBody">
-                                    <tr>
-                                        <td colspan="7" class="loading-row">Загрузка...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="card">
+                <div class="card-header">
+                    <h2>💬 Чат сотрудников</h2>
+                </div>
+                <div class="card-body">
+                    <p style="font-size: 16px; color: var(--text-gray); margin-bottom: 20px;">
+                        Внутренний чат для общения между сотрудниками
+                    </p>
+                    <div style="padding: 20px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%); border-radius: 12px;">
+                        <h3 style="color: var(--purple-accent); margin: 0 0 10px 0;">💭 В разработке</h3>
+                        <p style="margin: 0; color: var(--text-gray);">Групповой чат, уведомления и обмен файлами</p>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
-
-    <!-- Bot Modal -->
-    <div id="botModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="botModalTitle">Добавить бота</h3>
-                <span class="close" onclick="closeBotModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="botForm">
-                    <div class="form-group">
-                        <label for="botName">Имя бота</label>
-                        <input type="text" id="botName" name="name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="botTelegramName">Telegram имя (username)</label>
-                        <input type="text" id="botTelegramName" name="telegram_name" placeholder="@bot_username" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="botToken">Токен бота</label>
-                        <input type="text" id="botToken" name="token" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeBotModal()">Отмена</button>
-                <button type="submit" class="btn btn-primary" onclick="saveBotData()">Сохранить</button>
-            </div>
         </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Подтверждение удаления</h3>
-                <span class="close" onclick="closeDeleteModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p>Вы уверены, что хотите удалить бота <span id="deleteBotName"></span>?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Отмена</button>
-                <button type="button" class="btn btn-danger" onclick="confirmDeleteBot()">Удалить</button>
-            </div>
-        </div>
-    </div>
+    </main>
 
     <script src="/static/auth.js"></script>
     <script src="/static/base.js"></script>
-    <script src="/static/tgbot.js"></script>
     <script>
         // Система навигации
         document.addEventListener('DOMContentLoaded', function() {
@@ -208,8 +143,8 @@
                     url = '/static/dashboard.html';
                     break;
                 case 'tgbot':
-                    // Остаемся на текущей странице
-                    return;
+                    url = '/static/tgbot.html';
+                    break;
                 case 'tickets':
                     url = '/static/tickets.html';
                     break;
@@ -220,8 +155,8 @@
                     url = '/static/employees.html';
                     break;
                 case 'chat':
-                    url = '/static/chat.html';
-                    break;
+                    // Остаемся на текущей странице
+                    return;
                 case 'notes':
                     url = '/static/notes.html';
                     break;

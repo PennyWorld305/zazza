@@ -16,43 +16,43 @@
         <nav class="sidebar-nav">
             <ul>
                 <li class="nav-item">
-                    <a href="/static/dashboard.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="dashboard" id="nav-dashboard">
                         <span>🏠</span>
                         <span>Главная</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tgbot.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="tgbot" id="nav-tgbot">
                         <span>🤖</span>
                         <span>Телеграмм боты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/employees.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="employees" id="nav-employees">
                         <span>👥</span>
                         <span>Сотрудники</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tickets.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="tickets" id="nav-tickets">
                         <span>🎯</span>
                         <span>Активные тикеты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/archive.html" class="nav-link active">
+                    <a href="#" class="nav-link active" data-section="archive" id="nav-archive">
                         <span>📋</span>
                         <span>Архив тикетов</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="chat">
+                    <a href="#" class="nav-link" data-section="chat" id="nav-chat">
                         <span>💬</span>
                         <span>Чат сотрудников</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="notes">
+                    <a href="#" class="nav-link" data-section="notes" id="nav-notes">
                         <span>📝</span>
                         <span>Заметки</span>
                     </a>
@@ -245,6 +245,116 @@
             document.getElementById('ticketsTableBody').innerHTML = 
                 '<tr><td colspan="9" class="loading-row">Обновление...</td></tr>';
             loadArchiveTickets();
+        }
+
+        // Система навигации
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем авторизацию
+            if (!checkAuth()) {
+                return;
+            }
+
+            // Настройка навигации
+            setupNavigation();
+            
+            // Настройка кнопок в хедере
+            setupHeaderButtons();
+            
+            // Загружаем имя пользователя в хедер
+            loadUserProfile();
+        });
+
+        // Настройка навигации
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link[data-section]');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const section = this.getAttribute('data-section');
+                    navigateToPage(section);
+                });
+            });
+        }
+
+        // Навигация на страницы
+        function navigateToPage(section) {
+            let url = '';
+            switch(section) {
+                case 'dashboard':
+                    url = '/static/dashboard.html';
+                    break;
+                case 'tgbot':
+                    url = '/static/tgbot.html';
+                    break;
+                case 'tickets':
+                    url = '/static/tickets.html';
+                    break;
+                case 'archive':
+                    // Остаемся на текущей странице
+                    return;
+                case 'employees':
+                    url = '/static/employees.html';
+                    break;
+                case 'chat':
+                    url = '/static/chat.html';
+                    break;
+                case 'notes':
+                    url = '/static/notes.html';
+                    break;
+            }
+            
+            if (url) {
+                window.location.href = url;
+            }
+        }
+
+        // Настройка кнопок в хедере
+        function setupHeaderButtons() {
+            // Кнопка профиля
+            const profileBtn = document.getElementById('profileBtn');
+            if (profileBtn) {
+                profileBtn.addEventListener('click', function() {
+                    window.location.href = '/static/profile.html';
+                });
+            }
+            
+            // Кнопка выхода
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                });
+            }
+        }
+
+        // Загрузка профиля пользователя
+        async function loadUserProfile() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const profile = await response.json();
+                    const usernameElement = document.getElementById('username');
+                    if (usernameElement) {
+                        usernameElement.textContent = profile.display_name || profile.username;
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки профиля:', error);
+            }
+        }
+
+        // Функция для совместимости
+        function showProfile() {
+            window.location.href = '/static/profile.html';
         }
     </script>
 </body>

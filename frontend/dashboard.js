@@ -179,7 +179,7 @@ class DashboardManager {
     }
 
     showProfile() {
-        alert(`Профиль: ${this.currentUser?.username}`);
+        window.location.href = '/static/profile.html';
     }
 
     logout() {
