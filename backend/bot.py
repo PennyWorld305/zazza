@@ -159,12 +159,31 @@ class ZAZABot:
         
         self.application.add_handler(conversation_handler)
         
+        # Глобальный обработчик команды /start (работает всегда, даже во время разговора)
+        self.application.add_handler(CommandHandler('start', self.global_start_command))
+        
         # Обработчик сообщений в активных тикетах (когда тикет уже создан и идет общение)
-        # self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_ticket_message))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_ticket_message))
+        self.application.add_handler(MessageHandler(filters.PHOTO, self.handle_ticket_message))
+        self.application.add_handler(MessageHandler(filters.VIDEO, self.handle_ticket_message))
+        self.application.add_handler(MessageHandler(filters.Document.ALL, self.handle_ticket_message))
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Обработчик команды /start"""
         user = update.effective_user
+        
+        # Проверяем наличие открытых тикетов у пользователя
+        existing_ticket = await self.check_existing_ticket(user.id)
+        if existing_ticket:
+            await update.message.reply_text(
+                f"❗️ У вас уже есть открытый тикет #{existing_ticket}\n\n"
+                "Пожалуйста, дождитесь решения по текущему обращению, "
+                "прежде чем создавать новое.\n\n"
+                "Если у вас есть дополнительная информация по тикету, "
+                "просто напишите сообщение - оно будет добавлено к обращению.",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return ConversationHandler.END
         
         # Создаем новые данные тикета
         self.ticket_data[user.id] = TicketData(
@@ -755,7 +774,7 @@ class ZAZABot:
                     subject=category_names.get(category, "Новое обращение"),
                     category=category,
                     description=description,
-                    status="open",
+                    status="active",
                     priority="medium",
                     telegram_user_id=str(user_id),
                     telegram_username=ticket_data.username,
@@ -772,6 +791,22 @@ class ZAZABot:
                 
         except Exception as e:
             logger.error(f"Ошибка создания тикета: {e}")
+            return None
+    
+    async def check_existing_ticket(self, user_id: int) -> Optional[int]:
+        """Проверка наличия открытого тикета у пользователя"""
+        try:
+            with self.session_maker() as session:
+                # Ищем активные тикеты пользователя (только статус "active")
+                existing_ticket = session.query(ActiveTicket).filter(
+                    ActiveTicket.telegram_user_id == str(user_id),
+                    ActiveTicket.status == "active"
+                ).first()
+                
+                return existing_ticket.id if existing_ticket else None
+                
+        except Exception as e:
+            logger.error(f"Ошибка проверки существующего тикета: {e}")
             return None
     
     async def save_ticket_message(self, ticket_id: int, user_id: int, message):
@@ -831,6 +866,40 @@ class ZAZABot:
         await self.application.updater.stop()
         await self.application.stop()
         await self.application.shutdown()
+    
+    async def global_start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Глобальный обработчик команды /start - работает всегда"""
+        # Останавливаем любой активный разговор
+        if update.effective_user.id in self.ticket_data:
+            del self.ticket_data[update.effective_user.id]
+        
+        # Сбрасываем состояние разговора
+        context.user_data.clear()
+        
+        # Вызываем обычную функцию start
+        return await self.start_command(update, context)
+    
+    async def handle_ticket_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик сообщений для активных тикетов"""
+        user = update.effective_user
+        
+        # Проверяем, есть ли у пользователя активный тикет
+        existing_ticket_id = await self.check_existing_ticket(user.id)
+        
+        if existing_ticket_id:
+            # Сохраняем сообщение в тикет
+            await self.save_ticket_message(existing_ticket_id, user.id, update.message)
+            
+            await update.message.reply_text(
+                f"✅ Ваше сообщение добавлено к тикету #{existing_ticket_id}\n\n"
+                "Администратор получил уведомление и ответит в ближайшее время."
+            )
+        else:
+            # Если нет активного тикета, предлагаем создать новый
+            await update.message.reply_text(
+                "У вас нет активных обращений.\n"
+                "Для создания нового обращения используйте команду /start"
+            )
 
 # === ФУНКЦИИ ДЛЯ ЗАПУСКА БОТА ===
 

@@ -960,15 +960,15 @@
         // Открытие модального окна заметки
         function openNoteModal() {
             const noteModal = document.getElementById('noteModal');
-            const noteText = document.getElementById('noteText');
+            const noteInput = document.getElementById('noteInput');
             
             // Заполняем текущую заметку, если она есть
-            noteText.value = currentTicket?.note || '';
+            noteInput.value = currentTicket?.note || '';
             
             // Показываем модальное окно с анимацией
             noteModal.style.display = 'flex';
             setTimeout(() => {
-                noteText.focus();
+                noteInput.focus();
             }, 100);
         }
 
@@ -983,7 +983,7 @@
 
         // Сохранение заметки
         async function saveNote() {
-            const noteText = document.getElementById('noteText').value.trim();
+            const noteText = document.getElementById('noteInput').value.trim();
             
             try {
                 const response = await fetch(`/api/tickets/${ticketId}`, {
@@ -1277,9 +1277,9 @@
             </p>
             
             <div class="note-input-group">
-                <label for="noteText">Введите вашу заметку:</label>
+                <label for="noteInput">Введите вашу заметку:</label>
                 <textarea 
-                    id="noteText" 
+                    id="noteInput" 
                     class="note-textarea" 
                     placeholder="Введите заметку о тикете, важные детали или комментарии..."
                     maxlength="1000"
