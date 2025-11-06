@@ -1219,6 +1219,32 @@
         // Сохранение решения
         async function saveResolution(resolution) {
             try {
+                // Сначала отправляем сообщение клиенту в зависимости от решения
+                const resolutionMessages = {
+                    'closed': '🔒 Ваш тикет был закрыт. Спасибо за обращение!',
+                    'spam': '🚫 Просим вас не создавать пустых тикетов, которые не несут смысла и нагружают работу операторов. Спасибо за понимание!'
+                };
+
+                if (resolutionMessages[resolution]) {
+                    // Отправляем сообщение клиенту через бота
+                    const messageResponse = await fetch(`/api/tickets/${ticketId}/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify({
+                            content: resolutionMessages[resolution],
+                            message_type: 'text'
+                        })
+                    });
+
+                    if (!messageResponse.ok) {
+                        console.warn('Не удалось отправить сообщение клиенту');
+                    }
+                }
+
+                // Затем обновляем статус тикета
                 const response = await fetch(`/api/tickets/${ticketId}`, {
                     method: 'PUT',
                     headers: {
@@ -1267,6 +1293,8 @@
             const names = {
                 'refuse': 'Отказ',
                 'refund': 'Возврат',
+                'closed': 'Закрыт',
+                'spam': 'Спам',
                 'pending': 'Ожидание'
             };
             return names[resolution] || resolution || 'Не указано';
@@ -1362,6 +1390,24 @@
                         <div class="resolution-description">Одобрить возврат средств клиенту</div>
                     </div>
                     <div class="resolution-icon">✅</div>
+                </label>
+
+                <label class="resolution-option" onclick="selectResolution('closed')">
+                    <input type="radio" name="resolution" value="closed" id="closed">
+                    <div class="resolution-label">
+                        <div class="resolution-title">Закрыть тикет</div>
+                        <div class="resolution-description">Закрыть обращение (вопрос решен)</div>
+                    </div>
+                    <div class="resolution-icon">🔒</div>
+                </label>
+
+                <label class="resolution-option" onclick="selectResolution('spam')">
+                    <input type="radio" name="resolution" value="spam" id="spam">
+                    <div class="resolution-label">
+                        <div class="resolution-title">Спам</div>
+                        <div class="resolution-description">Обращение является спамом или не несет смысла</div>
+                    </div>
+                    <div class="resolution-icon">🚫</div>
                 </label>
             </div>
 

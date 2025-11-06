@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Клиенты - ZAZA Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-clients">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/employees.html" class="nav-link">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/clients.html" class="nav-link active">
+                        <span>👤</span>
+                        <span>Клиенты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/chat.html" class="nav-link">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/notes.html" class="nav-link">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <h1 id="page-title">Клиенты</h1>
+        </div>
+        
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+            <div class="user-menu">
+                <button class="user-btn" id="profileBtn">
+                    <span class="user-avatar">👤</span>
+                    <span id="username">Admin</span>
+                </button>
+            </div>
+            <button class="btn btn-danger" id="logoutBtn">
+                Выйти
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="card">
+                <div class="card-header">
+                    <h2>👤 Управление клиентами</h2>
+                    <div class="card-actions">
+                        <button class="btn btn-primary" onclick="loadClients()">
+                            🔄 Обновить
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div id="loadingSpinner" class="loading-spinner">
+                        <div class="spinner"></div>
+                        <span>Загрузка клиентов...</span>
+                    </div>
+                    
+                    <div id="clientsContent" style="display: none;">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Имя</th>
+                                        <th>Telegram ID</th>
+                                        <th>Количество тикетов</th>
+                                        <th>Статус</th>
+                                        <th>Дата регистрации</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientsTableBody">
+                                    <!-- Клиенты будут загружены через JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="emptyState" style="display: none; text-align: center; padding: 40px; color: #999;">
+                        <h3>👤 Нет клиентов</h3>
+                        <p>Клиенты появятся после создания ими первых тикетов в боте</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/base.js"></script>
+    <script>
+        let currentClients = [];
+
+        // Загрузка при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем авторизацию
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+            loadClients();
+        });
+
+        async function loadClients() {
+            const spinner = document.getElementById('loadingSpinner');
+            const content = document.getElementById('clientsContent');
+            const emptyState = document.getElementById('emptyState');
+
+            spinner.style.display = 'flex';
+            content.style.display = 'none';
+            emptyState.style.display = 'none';
+
+            try {
+                const token = getToken();
+                if (!token) {
+                    window.location.href = '/static/login.html';
+                    return;
+                }
+
+                const response = await fetch('/api/clients', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    // Токен недействителен, перенаправляем на страницу входа
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                currentClients = data.clients || [];
+                
+                displayClients(currentClients);
+
+            } catch (error) {
+                console.error('Ошибка загрузки клиентов:', error);
+                if (error.message.includes('401')) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                } else {
+                    showError('Ошибка загрузки клиентов');
+                }
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+
+        function displayClients(clients) {
+            const content = document.getElementById('clientsContent');
+            const emptyState = document.getElementById('emptyState');
+            const tbody = document.getElementById('clientsTableBody');
+
+            if (clients.length === 0) {
+                content.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            const rows = clients.map(client => `
+                <tr>
+                    <td>${client.id}</td>
+                    <td>${client.first_name || client.telegram_username || 'Не указано'}</td>
+                    <td>${client.telegram_user_id}</td>
+                    <td>
+                        <span class="badge badge-info">
+                            ${client.tickets_count}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge" style="background-color: ${client.is_blocked ? '#dc3545' : '#28a745'}; color: white;">
+                            ${client.is_blocked ? 'Заблокирован' : 'Активный'}
+                        </span>
+                    </td>
+                    <td>${formatDate(client.created_at)}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-primary" onclick="viewClientDetails(${client.id})" title="Подробнее">
+                                👁️ Подробнее
+                            </button>
+                            <button class="btn btn-sm ${client.is_blocked ? 'btn-success' : 'btn-warning'}" 
+                                    onclick="toggleClientBlock(${client.id}, '${client.is_blocked}')" 
+                                    title="${client.is_blocked ? 'Разблокировать' : 'Заблокировать'}">
+                                ${client.is_blocked ? '🔓 Разблокировать' : '🔒 Заблокировать'}
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            tbody.innerHTML = rows;
+            content.style.display = 'block';
+            emptyState.style.display = 'none';
+        }
+
+        function viewClientDetails(clientId) {
+            // Перенаправляем на страницу детализации клиента
+            window.location.href = `/static/client-details.html?id=${clientId}`;
+        }
+
+        async function toggleClientBlock(clientId, isCurrentlyBlocked) {
+            // Конвертируем строку в boolean
+            const isBlocked = isCurrentlyBlocked === 'true' || isCurrentlyBlocked === true;
+            const action = isBlocked ? 'разблокировать' : 'заблокировать';
+            
+            if (!confirm(`Вы уверены, что хотите ${action} этого клиента?`)) {
+                return;
+            }
+
+            try {
+                const token = getToken();
+                if (!token) {
+                    window.location.href = '/static/login.html';
+                    return;
+                }
+
+                const response = await fetch(`/api/clients/${clientId}/block`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                showSuccess(result.message);
+                
+                // Перезагружаем список клиентов
+                loadClients();
+
+            } catch (error) {
+                console.error('Ошибка изменения статуса клиента:', error);
+                showError('Ошибка изменения статуса клиента');
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Не указано';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showSuccess(message) {
+            // Простое уведомление об успехе (можно заменить на более красивое)
+            alert(message);
+        }
+
+        function showError(message) {
+            // Простое уведомление об ошибке (можно заменить на более красивое)
+            alert(message);
+        }
+
+        function getToken() {
+            return localStorage.getItem('access_token') || localStorage.getItem('token');
+        }
+    </script>
+</body>
+</html>

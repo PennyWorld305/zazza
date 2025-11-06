@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Детали клиента - ZAZA Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Модальное окно для просмотр изображений */
+        .image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .image-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            z-index: 10001;
+        }
+
+        .image-modal-close:hover {
+            opacity: 0.7;
+        }
+        
+        .media-message img {
+            transition: transform 0.2s ease;
+        }
+        
+        .media-message img:hover {
+            transform: scale(1.05);
+            cursor: pointer;
+        }
+
+        /* Стили для заголовков таблиц */
+        .data-table th {
+            color: #495057 !important;
+            background-color: #f8f9fa !important;
+            font-weight: 600 !important;
+            border: 1px solid #dee2e6 !important;
+        }
+        
+        /* Для темной темы */
+        body.dark-theme .data-table th {
+            color: #e9ecef !important;
+            background-color: #495057 !important;
+        }
+
+        /* Стили для статистики */
+        .statistics-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .statistics-container h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        .stats-column h4 {
+            margin-bottom: 10px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Стили для пагинации */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-btn, .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+
+        .current-page {
+            padding: 8px 12px;
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .pagination-info {
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .ticket-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .ticket-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .ticket-body {
+            padding: 15px;
+        }
+
+        .messages-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            background: #fafafa;
+        }
+
+        .message-item {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .message-item:last-child {
+            border-bottom: none;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .message-content {
+            margin-bottom: 5px;
+        }
+
+        .message-time {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        /* Статистика */
+        .statistics-container {
+            margin: 20px 0;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .stats-column {
+            flex: 1;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .stats-column h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            font-size: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #007bff;
+            background: #e3f2fd;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        /* Пагинация */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .pagination-btn {
+            min-width: 120px;
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .page-btn {
+            min-width: 40px;
+            height: 40px;
+        }
+
+        .current-page {
+            background: #007bff;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            min-width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pagination-info {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        /* Темная тема для статистики */
+        body.dark-theme .stats-column {
+            background: #495057;
+            border-color: #6c757d;
+        }
+
+        body.dark-theme .stats-column h4 {
+            color: #e9ecef;
+        }
+
+        body.dark-theme .stat-item {
+            border-bottom-color: #6c757d;
+        }
+
+        body.dark-theme .stat-label {
+            color: #e9ecef;
+        }
+    </style>
+</head>
+<body class="page-client-details">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/employees.html" class="nav-link">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/clients.html" class="nav-link active">
+                        <span>👤</span>
+                        <span>Клиенты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/chat.html" class="nav-link">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/notes.html" class="nav-link">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <h1 id="page-title">Детали клиента</h1>
+        </div>
+        
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+            <div class="user-menu">
+                <button class="user-btn" id="profileBtn">
+                    <span class="user-avatar">👤</span>
+                    <span id="username">Admin</span>
+                </button>
+            </div>
+            <button class="btn btn-danger" id="logoutBtn">
+                Выйти
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div id="loadingSpinner" class="loading-spinner">
+                <div class="spinner"></div>
+                <span>Загрузка данных клиента...</span>
+            </div>
+            
+            <div id="clientContent" style="display: none;">
+                <!-- Информация о клиенте -->
+                <div class="card">
+                    <div class="card-header">
+                        <button class="btn btn-secondary" onclick="goBack()">← Назад</button> 
+                        <h2>👤 Информация о клиенте</h2>
+                    </div>
+                    <div class="card-body" id="clientInfo">
+                        <!-- Данные клиента будут загружены через JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Статистика -->
+                <div class="card">
+                    <div class="card-body" id="clientStatistics">
+                        <!-- Статистика будет загружена через JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Тикеты клиента -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🎯 Тикеты клиента</h2>
+                    </div>
+                    <div class="card-body" id="clientTickets">
+                        <!-- Тикеты будут загружены через JavaScript -->
+                    </div>
+                    <div class="card-footer" id="ticketsPagination">
+                        <!-- Пагинация будет загружена через JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/base.js"></script>
+    <script>
+        let clientId = null;
+        let clientData = null;
+
+        // Загрузка при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем авторизацию
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+
+            // Получаем ID клиента из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            clientId = urlParams.get('id');
+            
+            if (!clientId) {
+                alert('ID клиента не указан');
+                goBack();
+                return;
+            }
+
+            loadClientDetails();
+        });
+
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        async function loadClientDetails(page = 1) {
+            const spinner = document.getElementById('loadingSpinner');
+            const content = document.getElementById('clientContent');
+
+            spinner.style.display = 'flex';
+            content.style.display = 'none';
+
+            try {
+                const token = getToken();
+                if (!token) {
+                    window.location.href = '/static/login.html';
+                    return;
+                }
+
+                const response = await fetch(`/api/clients/${clientId}?page=${page}&limit=${itemsPerPage}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                currentPage = page;
+
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                clientData = data;
+                
+                displayClientInfo(data.client);
+                displayStatistics(data.statistics);
+                displayClientTickets(data.tickets);
+                displayPagination(data.pagination);
+
+            } catch (error) {
+                console.error('Ошибка загрузки данных клиента:', error);
+                if (error.message.includes('401')) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/static/login.html';
+                } else {
+                    alert('Ошибка загрузки данных клиента');
+                    goBack();
+                }
+            } finally {
+                spinner.style.display = 'none';
+                content.style.display = 'block';
+            }
+        }
+
+        function displayClientInfo(client) {
+            const container = document.getElementById('clientInfo');
+            
+            const html = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <tbody>
+                            <tr>
+                                <th style="width: 200px;">Telegram Username</th>
+                                <td>@${client.telegram_username || 'Не указан'}</td>
+                            </tr>
+                            <tr>
+                                <th>Telegram ID</th>
+                                <td>${client.telegram_user_id}</td>
+                            </tr>
+                            <tr>
+                                <th>Имя</th>
+                                <td>${client.first_name || 'Не указано'}</td>
+                            </tr>
+                            
+                            <tr>
+                                <th>Статус</th>
+                                <td>
+                                    <span class="status-badge" style="background-color: ${client.is_blocked ? '#dc3545' : '#28a745'}; color: white;">
+                                        ${client.is_blocked ? 'Заблокирован' : 'Активный'}
+                                    </span>
+                                    <button class="btn btn-sm ${client.is_blocked ? 'btn-success' : 'btn-warning'}" 
+                                            onclick="toggleClientBlock(${client.id}, '${client.is_blocked}')"
+                                            style="margin-left: 10px;">
+                                        ${client.is_blocked ? '🔓 Разблокировать' : '🔒 Заблокировать'}
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Дата регистрации</th>
+                                <td>${formatDate(client.created_at)}</td>
+                            </tr>
+                            <tr>
+                                <th>Последнее обновление</th>
+                                <td>${formatDate(client.updated_at)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function displayStatistics(statistics) {
+            const container = document.getElementById('clientStatistics');
+            
+            const categoryNames = {
+                'dispute': 'Диспуты',
+                'crypto_payment': 'Криптооплата',
+                'general': 'Общие вопросы',
+                'employment': 'Трудоустройство'
+            };
+            
+            const resolutionNames = {
+                'in_work': 'В работе',
+                'refuse': 'Отказ',
+                'refund': 'Возврат',
+                'closed': 'Закрыто',
+                'spam': 'Спам',
+                // Старые значения для совместимости
+                'resolved': 'Решено',
+                'refunded': 'Возврат', 
+                'rejected': 'Отказ'
+            };
+
+            let categoryStatsHtml = '';
+            if (statistics.categories && Object.keys(statistics.categories).length > 0) {
+                categoryStatsHtml = Object.entries(statistics.categories).map(([category, count]) => 
+                    `<div class="stat-item">
+                        <span class="stat-label">${categoryNames[category] || category}:</span>
+                        <span class="stat-value">${count}</span>
+                    </div>`
+                ).join('');
+            } else {
+                categoryStatsHtml = '<div class="stat-item">Нет данных по категориям</div>';
+            }
+
+            let resolutionStatsHtml = '';
+            if (statistics.resolutions && Object.keys(statistics.resolutions).length > 0) {
+                resolutionStatsHtml = Object.entries(statistics.resolutions).map(([resolution, count]) => 
+                    `<div class="stat-item">
+                        <span class="stat-label">${resolutionNames[resolution] || resolution}:</span>
+                        <span class="stat-value">${count}</span>
+                    </div>`
+                ).join('');
+            } else {
+                resolutionStatsHtml = '<div class="stat-item">Нет завершенных тикетов</div>';
+            }
+
+            const html = `
+                <div class="statistics-container">
+                    <h3>📊 Статистика тикетов</h3>
+                    <div class="stats-row">
+                        <div class="stats-column">
+                            <h4>По категориям:</h4>
+                            ${categoryStatsHtml}
+                        </div>
+                        <div class="stats-column">
+                            <h4>По результатам:</h4>
+                            ${resolutionStatsHtml}
+                        </div>
+                        <div class="stats-column">
+                            <div class="stat-item">
+                                <span class="stat-label">Всего тикетов:</span>
+                                <span class="stat-value">${statistics.total_tickets || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function displayClientTickets(tickets) {
+            const container = document.getElementById('clientTickets');
+            
+            if (tickets.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">У клиента нет тикетов</div>';
+                return;
+            }
+
+            const ticketsHtml = tickets.map(ticket => `
+                <div class="ticket-card">
+                    <div class="ticket-header">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4>Тикет #${ticket.id} - ${ticket.subject || 'Без темы'}</h4>
+                                <p style="margin: 5px 0; color: #666;">
+                                    Категория: <strong>${getCategoryName(ticket.category)}</strong> | 
+                                    Статус: <span class="status-badge" style="background-color: ${getStatusColor(ticket.status)}; color: white; padding: 2px 8px; border-radius: 4px;">
+                                        ${getStatusName(ticket.status)}
+                                    </span> |
+                                    Решение: <span class="status-badge" style="background-color: ${getResolutionColor(ticket.resolution)}; color: white; padding: 2px 8px; border-radius: 4px;">
+                                        ${getResolutionName(ticket.resolution)}
+                                    </span>
+                                </p>
+                            </div>
+                            <div style="text-align: right; color: #666;">
+                                <div>Создан: ${formatDate(ticket.created_at)}</div>
+                                <div>Обновлен: ${formatDate(ticket.updated_at)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ticket-body">
+                        <div style="margin-bottom: 15px;">
+                            <strong>Описание:</strong>
+                            <p>${ticket.description || 'Нет описания'}</p>
+                        </div>
+                        
+                        ${ticket.note ? `
+                        <div style="margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+                            <strong>Заметка администратора:</strong>
+                            <p style="margin: 5px 0 0 0;">${ticket.note}</p>
+                        </div>
+                        ` : ''}
+                        
+                        <div>
+                            <strong>История переписки (${ticket.messages.length} сообщений):</strong>
+                            <div class="messages-container">
+                                ${displayMessages(ticket.messages)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = ticketsHtml;
+        }
+
+        function displayPagination(pagination) {
+            const container = document.getElementById('ticketsPagination');
+            
+            if (pagination.pages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let paginationHtml = '<div class="pagination-container">';
+            
+            // Кнопка "Предыдущая"
+            if (pagination.page > 1) {
+                paginationHtml += `<button class="btn btn-secondary pagination-btn" onclick="loadClientDetails(${pagination.page - 1})">← Предыдущая</button>`;
+            }
+            
+            // Номера страниц
+            paginationHtml += '<div class="page-numbers">';
+            
+            for (let i = 1; i <= pagination.pages; i++) {
+                if (i === pagination.page) {
+                    paginationHtml += `<span class="current-page">${i}</span>`;
+                } else {
+                    paginationHtml += `<button class="btn btn-outline-primary page-btn" onclick="loadClientDetails(${i})">${i}</button>`;
+                }
+            }
+            
+            paginationHtml += '</div>';
+            
+            // Кнопка "Следующая"
+            if (pagination.page < pagination.pages) {
+                paginationHtml += `<button class="btn btn-secondary pagination-btn" onclick="loadClientDetails(${pagination.page + 1})">Следующая →</button>`;
+            }
+            
+            paginationHtml += '</div>';
+            paginationHtml += `<div class="pagination-info">Страница ${pagination.page} из ${pagination.pages} (всего тикетов: ${pagination.total})</div>`;
+            
+            container.innerHTML = paginationHtml;
+        }
+
+        function displayMessages(messages) {
+            if (messages.length === 0) {
+                return '<div style="text-align: center; color: #999; padding: 20px;">Нет сообщений</div>';
+            }
+
+            return messages.map(message => `
+                <div class="message-item">
+                    <div class="message-sender" style="color: ${message.is_from_admin ? '#7b1fa2' : '#1976d2'};">
+                        ${message.is_from_admin ? 'Администратор' : `@${clientData.client.telegram_username || 'Клиент'}`}
+                    </div>
+                    <div class="message-content">
+                        ${formatMessageContent(message)}
+                    </div>
+                    <div class="message-time">
+                        ${formatDate(message.created_at)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatMessageContent(message) {
+            // Обрабатываем разные типы сообщений
+            if (message.message_type === 'photo') {
+                if (message.local_file_path) {
+                    const imagePath = message.local_file_path.replace(/\\/g, '/');
+                    return `
+                        <div class="media-message">
+                            <img src="/api/media/${imagePath}" 
+                                 alt="Изображение" 
+                                 style="max-width: 250px; max-height: 200px; border-radius: 8px; cursor: pointer;" 
+                                 onclick="openImageModal('/api/media/${imagePath}')"
+                                 onerror="this.style.display='none'">
+                            ${message.content ? `<div style="margin-top: 8px; color: #666;">${message.content.replace(/\n/g, '<br>')}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    return `<div style="color: #999; font-style: italic;">📷 Изображение (недоступно)</div>`;
+                }
+            }
+            
+            if (message.message_type === 'video') {
+                if (message.local_file_path) {
+                    const videoPath = message.local_file_path.replace(/\\/g, '/');
+                    return `
+                        <div class="media-message">
+                            <video controls style="max-width: 250px; max-height: 200px; border-radius: 8px;">
+                                <source src="/api/media/${videoPath}" type="video/mp4">
+                                Ваш браузер не поддерживает видео.
+                            </video>
+                            ${message.content ? `<div style="margin-top: 8px; color: #666;">${message.content.replace(/\n/g, '<br>')}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    return `<div style="color: #999; font-style: italic;">🎥 Видео (недоступно)</div>`;
+                }
+            }
+            
+            if (message.message_type === 'document') {
+                if (message.local_file_path) {
+                    const docPath = message.local_file_path.replace(/\\/g, '/');
+                    return `
+                        <div class="media-message">
+                            <a href="/api/media/${docPath}" 
+                               target="_blank" 
+                               style="color: #007bff; text-decoration: none;">
+                                📄 ${message.original_filename || 'Документ'}
+                            </a>
+                            ${message.file_size ? `<div style="font-size: 0.9em; color: #999;">Размер: ${formatFileSize(message.file_size)}</div>` : ''}
+                            ${message.content ? `<div style="margin-top: 8px; color: #666;">${message.content.replace(/\n/g, '<br>')}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    return `<div style="color: #999; font-style: italic;">📄 Документ (недоступен)</div>`;
+                }
+            }
+            
+            // Обычное текстовое сообщение
+            if (message.content) {
+                return message.content.replace(/\n/g, '<br>');
+            }
+            
+            return '<div style="color: #999; font-style: italic;">Пустое сообщение</div>';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Б';
+            const k = 1024;
+            const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Функции для модального окна с изображениями
+        function openImageModal(imageSrc) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            
+            modalImage.src = imageSrc;
+            modal.style.display = 'flex';
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.style.display = 'none';
+        }
+
+        // Закрытие модального окна по нажатию ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+
+        async function toggleClientBlock(clientId, isCurrentlyBlocked) {
+            // Конвертируем строку в boolean
+            const isBlocked = isCurrentlyBlocked === 'true' || isCurrentlyBlocked === true;
+            const action = isBlocked ? 'разблокировать' : 'заблокировать';
+            
+            if (!confirm(`Вы уверены, что хотите ${action} этого клиента?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/clients/${clientId}/block`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                alert(result.message);
+                
+                // Перезагружаем данные клиента
+                loadClientDetails();
+
+            } catch (error) {
+                console.error('Ошибка изменения статуса клиента:', error);
+                alert('Ошибка изменения статуса клиента');
+            }
+        }
+
+        function getCategoryName(category) {
+            const names = {
+                'dispute': 'Диспут',
+                'crypto_payment': 'Криптооплата',
+                'general': 'Общие вопросы',
+                'employment': 'Трудоустройство'
+            };
+            return names[category] || category;
+        }
+
+        function getStatusName(status) {
+            const names = {
+                'active': 'Активный',
+                'in_work': 'В работе',
+                'archive': 'Архив'
+            };
+            return names[status] || status;
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'active': '#28a745',
+                'in_work': '#ffc107',
+                'archive': '#6c757d'
+            };
+            return colors[status] || '#6c757d';
+        }
+
+        function getResolutionName(resolution) {
+            const names = {
+                'in_work': 'В работе',
+                'refuse': 'Отказ',
+                'refund': 'Возврат',
+                'closed': 'Закрыто',
+                'spam': 'Спам'
+            };
+            return names[resolution] || resolution;
+        }
+
+        function getResolutionColor(resolution) {
+            const colors = {
+                'in_work': '#28a745',
+                'refuse': '#dc3545',
+                'refund': '#6f42c1',
+                'closed': '#17a2b8',
+                'spam': '#fd7e14'
+            };
+            return colors[resolution] || '#6c757d';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Не указано';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function goBack() {
+            window.location.href = '/static/clients.html';
+        }
+
+        function getToken() {
+            return localStorage.getItem('access_token') || localStorage.getItem('token');
+        }
+    </script>
+
+    <!-- Модальное окно для просмотра изображений -->
+    <div class="image-modal" id="imageModal" onclick="closeImageModal()">
+        <button class="image-modal-close" onclick="closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="Увеличенное изображение">
+    </div>
+</body>
+</html>

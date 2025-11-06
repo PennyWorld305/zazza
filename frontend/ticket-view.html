@@ -5,6 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Просмотр архивного обращения - ZAZA Admin</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Модальное окно для просмотр изображений */
+        .image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .image-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            z-index: 10001;
+        }
+
+        .image-modal-close:hover {
+            opacity: 0.7;
+        }
+        
+        .media-message img {
+            transition: transform 0.2s ease;
+        }
+        
+        .media-message img:hover {
+            transform: scale(1.05);
+        }
+    </style>
 </head>
 <body class="page-archive">
     <!-- Sidebar -->
@@ -125,6 +170,10 @@
 
                 ticket = await response.json();
                 displayTicket(ticket);
+                // Отображаем сообщения, которые уже пришли с тикетом
+                if (ticket.messages) {
+                    displayMessages(ticket.messages);
+                }
             } catch (error) {
                 console.error('Ошибка загрузки тикета:', error);
                 document.getElementById('ticketContent').innerHTML = 
@@ -219,29 +268,9 @@
             `;
 
             container.innerHTML = ticketHTML;
-            loadMessages();
         }
 
-        async function loadMessages() {
-            try {
-                const response = await fetch(`/api/tickets/${ticketId}/messages`, {
-                    headers: {
-                        'Authorization': `Bearer ${getToken()}`
-                    }
-                });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const messages = await response.json();
-                displayMessages(messages);
-            } catch (error) {
-                console.error('Ошибка загрузки сообщений:', error);
-                document.getElementById('messagesList').innerHTML = 
-                    '<div style="text-align: center; color: #d32f2f; padding: 20px;">Ошибка загрузки сообщений</div>';
-            }
-        }
 
         function displayMessages(messages) {
             const container = document.getElementById('messagesList');
@@ -265,13 +294,13 @@
                             ${messages.map(message => `
                                 <tr>
                                     <td>
-                                        <span class="status-badge" style="background-color: ${message.sender_type === 'client' ? '#e3f2fd' : '#f3e5f5'}; color: ${message.sender_type === 'client' ? '#1976d2' : '#7b1fa2'};">
-                                            ${message.sender_type === 'client' ? `@${ticket.telegram_username || 'Клиент'}` : 'Администратор'}
+                                        <span class="status-badge" style="background-color: ${message.is_from_admin ? '#f3e5f5' : '#e3f2fd'}; color: ${message.is_from_admin ? '#7b1fa2' : '#1976d2'};">
+                                            ${message.is_from_admin ? 'Администратор' : `@${ticket.telegram_username || 'Клиент'}`}
                                         </span>
                                     </td>
                                     <td>
                                         <div style="word-wrap: break-word; max-width: 400px;">
-                                            ${formatMessageContent(message.content)}
+                                            ${formatMessageContent(message)}
                                         </div>
                                     </td>
                                     <td>${formatDate(message.created_at)}</td>
@@ -285,19 +314,76 @@
             container.innerHTML = messagesHTML;
         }
 
-        function formatMessageContent(content) {
-            // Простая обработка контента сообщения
-            if (!content) return '';
-            
-            // Заменяем переносы строк на <br>
-            content = content.replace(/\n/g, '<br>');
-            
-            // Если это выглядит как URL изображения, показываем как изображение
-            if (content.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-                return `<img src="${content}" alt="Изображение" style="max-width: 200px; max-height: 200px; border-radius: 4px;" onerror="this.style.display='none'">`;
+        function formatMessageContent(message) {
+            // Обрабатываем разные типы сообщений
+            if (message.message_type === 'photo') {
+                if (message.local_file_path) {
+                    const imagePath = message.local_file_path.replace(/\\/g, '/');
+                    return `
+                        <div class="media-message">
+                            <img src="/api/media/${imagePath}" 
+                                 alt="Изображение" 
+                                 style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" 
+                                 onclick="openImageModal('/api/media/${imagePath}')"
+                                 onerror="this.style.display='none'">
+                            ${message.content ? `<div style="margin-top: 8px; color: #666;">${message.content.replace(/\n/g, '<br>')}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    return `<div style="color: #999; font-style: italic;">📷 Изображение (недоступно)</div>`;
+                }
             }
             
-            return content;
+            if (message.message_type === 'video') {
+                if (message.local_file_path) {
+                    const videoPath = message.local_file_path.replace(/\\/g, '/');
+                    return `
+                        <div class="media-message">
+                            <video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
+                                <source src="/api/media/${videoPath}" type="video/mp4">
+                                Ваш браузер не поддерживает видео.
+                            </video>
+                            ${message.content ? `<div style="margin-top: 8px; color: #666;">${message.content.replace(/\n/g, '<br>')}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    return `<div style="color: #999; font-style: italic;">🎥 Видео (недоступно)</div>`;
+                }
+            }
+            
+            if (message.message_type === 'document') {
+                if (message.local_file_path) {
+                    const docPath = message.local_file_path.replace(/\\/g, '/');
+                    return `
+                        <div class="media-message">
+                            <a href="/api/media/${docPath}" 
+                               target="_blank" 
+                               style="color: #007bff; text-decoration: none;">
+                                📄 ${message.original_filename || 'Документ'}
+                            </a>
+                            ${message.file_size ? `<div style="font-size: 0.9em; color: #999;">Размер: ${formatFileSize(message.file_size)}</div>` : ''}
+                            ${message.content ? `<div style="margin-top: 8px; color: #666;">${message.content.replace(/\n/g, '<br>')}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    return `<div style="color: #999; font-style: italic;">📄 Документ (недоступен)</div>`;
+                }
+            }
+            
+            // Обычное текстовое сообщение
+            if (message.content) {
+                return message.content.replace(/\n/g, '<br>');
+            }
+            
+            return '<div style="color: #999; font-style: italic;">Пустое сообщение</div>';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Б';
+            const k = 1024;
+            const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
         function getCategoryName(category) {
@@ -323,7 +409,9 @@
             const names = {
                 'in_work': 'В работе',
                 'refuse': 'Отказ',
-                'refund': 'Возврат'
+                'refund': 'Возврат',
+                'closed': 'Закрыт',
+                'spam': 'Спам'
             };
             return names[resolution] || resolution;
         }
@@ -332,7 +420,9 @@
             const colors = {
                 'in_work': '#28a745',
                 'refuse': '#dc3545',
-                'refund': '#6f42c1'
+                'refund': '#6f42c1',
+                'closed': '#17a2b8',
+                'spam': '#fd7e14'
             };
             return colors[resolution] || '#6c757d';
         }
@@ -348,6 +438,33 @@
                 minute: '2-digit'
             });
         }
+
+        // Функции для модального окна с изображениями
+        function openImageModal(imageSrc) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            
+            modalImage.src = imageSrc;
+            modal.style.display = 'flex';
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.style.display = 'none';
+        }
+
+        // Закрытие модального окна по нажатию ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
     </script>
+
+    <!-- Модальное окно для просмотра изображений -->
+    <div class="image-modal" id="imageModal" onclick="closeImageModal()">
+        <button class="image-modal-close" onclick="closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="Увеличенное изображение">
+    </div>
 </body>
 </html>

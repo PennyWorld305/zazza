@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-from database import get_db, User, TelegramBot, Employee, ActiveTicket, ArchiveTicket, EmployeeChat, Note, TicketMessage, create_tables
+from database import get_db, User, TelegramBot, Employee, ActiveTicket, ArchiveTicket, EmployeeChat, Note, TicketMessage, Client, create_tables
 from auth import verify_password, get_password_hash, create_access_token, verify_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 
 app = FastAPI(title="ZAZA Admin Panel API")
@@ -421,6 +421,29 @@ def get_active_tickets(db: Session = Depends(get_db), current_user: dict = Depen
     
     return result
 
+@app.get("/api/tickets/archive")
+def get_archive_tickets(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Получить список архивных тикетов"""
+    tickets = db.query(ActiveTicket).filter(ActiveTicket.status == "archive").all()
+    
+    result = []
+    for ticket in tickets:
+        result.append({
+            "id": ticket.id,
+            "subject": ticket.subject,
+            "category": ticket.category,
+            "telegram_username": ticket.telegram_username,
+            "telegram_user_id": ticket.telegram_user_id,
+            "status": ticket.status,
+            "resolution": ticket.resolution,
+            "note": ticket.note,
+            "priority": ticket.priority,
+            "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+            "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None
+        })
+    
+    return result
+
 @app.get("/api/tickets/test")
 def get_tickets_test(db: Session = Depends(get_db)):
     """Тестовый endpoint без авторизации для проверки тикетов"""
@@ -665,6 +688,161 @@ def get_media_file(file_path: str):
 def get_backend_media_file(file_path: str):
     """Альтернативный маршрут для медиафайлов через /backend/media/"""
     return get_media_file(file_path)
+
+# === КЛИЕНТЫ ===
+
+@app.get("/api/clients")
+def get_clients(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Получить список всех клиентов с количеством тикетов"""
+    
+    # Получаем всех уникальных клиентов из тикетов
+    clients_from_tickets = db.query(
+        ActiveTicket.telegram_user_id,
+        ActiveTicket.telegram_username
+    ).distinct().all()
+    
+    clients_data = []
+    
+    for client_ticket in clients_from_tickets:
+        # Проверяем есть ли клиент в таблице clients
+        client = db.query(Client).filter(Client.telegram_user_id == client_ticket.telegram_user_id).first()
+        
+        # Если нет - создаем
+        if not client:
+            client = Client(
+                telegram_user_id=client_ticket.telegram_user_id,
+                telegram_username=client_ticket.telegram_username,
+                is_blocked=False
+            )
+            db.add(client)
+            db.commit()
+            db.refresh(client)
+        
+        # Считаем количество тикетов клиента
+        tickets_count = db.query(ActiveTicket).filter(ActiveTicket.telegram_user_id == client.telegram_user_id).count()
+        
+        clients_data.append({
+            "id": client.id,
+            "telegram_user_id": client.telegram_user_id,
+            "telegram_username": client.telegram_username or "Не указан",
+            "first_name": client.first_name,
+            "last_name": client.last_name,
+            "is_blocked": client.is_blocked,
+            "tickets_count": tickets_count,
+            "created_at": client.created_at.isoformat() if client.created_at else None,
+            "updated_at": client.updated_at.isoformat() if client.updated_at else None
+        })
+    
+    return {"clients": clients_data}
+
+@app.get("/api/clients/{client_id}")
+def get_client_details(client_id: int, page: int = 1, limit: int = 10, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Получить детали клиента с его тикетами"""
+    
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    
+    # Получаем общее количество тикетов
+    total_tickets = db.query(ActiveTicket).filter(ActiveTicket.telegram_user_id == client.telegram_user_id).count()
+    
+    # Получаем тикеты с пагинацией
+    offset = (page - 1) * limit
+    tickets = db.query(ActiveTicket).filter(ActiveTicket.telegram_user_id == client.telegram_user_id).order_by(ActiveTicket.created_at.desc()).offset(offset).limit(limit).all()
+    
+    # Подсчитываем статистику по всем тикетам клиента
+    all_tickets = db.query(ActiveTicket).filter(ActiveTicket.telegram_user_id == client.telegram_user_id).all()
+    
+    # Статистика по категориям
+    category_stats = {}
+    resolution_stats = {}
+    
+    for t in all_tickets:
+        # Статистика категорий
+        if t.category:
+            category_stats[t.category] = category_stats.get(t.category, 0) + 1
+        
+        # Статистика резолюций
+        if t.resolution:
+            resolution_stats[t.resolution] = resolution_stats.get(t.resolution, 0) + 1
+    
+    tickets_data = []
+    for ticket in tickets:
+        # Получаем сообщения для каждого тикета
+        messages = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket.id).order_by(TicketMessage.created_at).all()
+        
+        messages_data = []
+        for msg in messages:
+            messages_data.append({
+                "id": msg.id,
+                "telegram_user_id": msg.telegram_user_id,
+                "message_type": msg.message_type,
+                "content": msg.content,
+                "file_id": msg.file_id,
+                "local_file_path": msg.local_file_path,
+                "original_filename": msg.original_filename,
+                "file_size": msg.file_size,
+                "is_from_admin": msg.is_from_admin,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None
+            })
+        
+        tickets_data.append({
+            "id": ticket.id,
+            "subject": ticket.subject,
+            "category": ticket.category,
+            "description": ticket.description,
+            "status": ticket.status,
+            "resolution": ticket.resolution,
+            "priority": ticket.priority,
+            "note": ticket.note,
+            "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+            "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
+            "messages": messages_data
+        })
+    
+    return {
+        "client": {
+            "id": client.id,
+            "telegram_user_id": client.telegram_user_id,
+            "telegram_username": client.telegram_username,
+            "first_name": client.first_name,
+            "last_name": client.last_name,
+            "is_blocked": client.is_blocked,
+            "created_at": client.created_at.isoformat() if client.created_at else None,
+            "updated_at": client.updated_at.isoformat() if client.updated_at else None
+        },
+        "tickets": tickets_data,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total_tickets,
+            "pages": (total_tickets + limit - 1) // limit
+        },
+        "statistics": {
+            "categories": category_stats,
+            "resolutions": resolution_stats,
+            "total_tickets": total_tickets
+        }
+    }
+
+@app.put("/api/clients/{client_id}/block")
+def toggle_client_block(client_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Заблокировать/разблокировать клиента"""
+    
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    
+    # Переключаем статус блокировки
+    client.is_blocked = not client.is_blocked
+    db.commit()
+    
+    action = "заблокирован" if client.is_blocked else "разблокирован"
+    
+    return {
+        "message": f"Клиент {action} успешно",
+        "is_blocked": client.is_blocked
+    }
 
 if __name__ == "__main__":
     create_tables()

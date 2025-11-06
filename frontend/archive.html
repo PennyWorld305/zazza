@@ -34,6 +34,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="/static/clients.html" class="nav-link">
+                        <span>👤</span>
+                        <span>Клиенты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#" class="nav-link" data-section="tickets" id="nav-tickets">
                         <span>🎯</span>
                         <span>Активные тикеты</span>
@@ -134,7 +140,7 @@
 
         async function loadArchiveTickets() {
             try {
-                const response = await fetch('/api/tickets', {
+                const response = await fetch('/api/tickets/archive', {
                     headers: {
                         'Authorization': `Bearer ${getToken()}`
                     }
@@ -144,9 +150,7 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const allTickets = await response.json();
-                // Фильтруем только архивные тикеты
-                const archiveTickets = allTickets.filter(ticket => ticket.status === 'archive');
+                const archiveTickets = await response.json();
                 currentTickets = archiveTickets;
                 displayTickets(archiveTickets);
             } catch (error) {

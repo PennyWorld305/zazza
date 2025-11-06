@@ -124,6 +124,18 @@ class TicketMessage(Base):
     
     ticket = relationship("ActiveTicket")
 
+class Client(Base):
+    __tablename__ = "clients"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_user_id = Column(String, unique=True, nullable=False, index=True)
+    telegram_username = Column(String, nullable=True)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    is_blocked = Column(Boolean, default=False)  # Заблокирован ли клиент
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 def get_db():
     db = SessionLocal()
     try:
