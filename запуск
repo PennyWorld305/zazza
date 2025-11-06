@@ -1,0 +1,17 @@
+REM Запуск ZAZA проекта
+@echo off
+echo 🚀 Запуск ZAZA Admin Panel и Bot Manager...
+
+REM Запускаем FastAPI сервер в фоне
+echo 🌐 Запуск FastAPI сервера...
+start "ZAZA API" C:\Users\Oganes\Desktop\ZAZA\backend\venv\Scripts\python.exe C:\Users\Oganes\Desktop\ZAZA\backend\main.py
+
+REM Ждем немного для запуска API
+timeout /t 3 /nobreak >nul
+
+REM Запускаем менеджер ботов
+echo 🤖 Запуск Bot Manager...
+C:\Users\Oganes\Desktop\ZAZA\backend\venv\Scripts\python.exe C:\Users\Oganes\Desktop\ZAZA\backend\bot_manager.py
+
+echo 👋 Проект остановлен
+pause

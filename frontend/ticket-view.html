@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр архивного обращения - ZAZA Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-archive">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/employees.html" class="nav-link">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link active">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="chat">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="notes">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="header">
+            <div class="header-left">
+                <a href="/static/archive.html" class="btn btn-secondary" style="margin-right: 15px;">← Назад к архиву</a>
+                <h1 id="page-title">📋 Просмотр архивного обращения</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+                <div class="user-menu">
+                    <button class="user-btn" id="profileBtn">
+                        <span class="user-avatar">👤</span>
+                        <span id="username">Admin</span>
+                    </button>
+                </div>
+                <button class="btn btn-danger" id="logoutBtn">
+                    Выйти
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content" id="mainContent">
+            <div id="ticketContent">
+                <div class="loading-row">Загрузка обращения...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Общий JavaScript -->
+    <script src="/static/base.js"></script>
+    <script>
+        let ticketId = null;
+        let ticket = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            
+            // Получаем ID тикета из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            ticketId = urlParams.get('id');
+            
+            if (!ticketId) {
+                document.getElementById('ticketContent').innerHTML = 
+                    '<div class="container"><div class="card"><div class="card-body" style="text-align: center; color: #d32f2f;">Не указан ID обращения</div></div></div>';
+                return;
+            }
+            
+            loadTicket();
+        });
+
+        async function loadTicket() {
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                ticket = await response.json();
+                displayTicket(ticket);
+            } catch (error) {
+                console.error('Ошибка загрузки тикета:', error);
+                document.getElementById('ticketContent').innerHTML = 
+                    '<div class="container"><div class="card"><div class="card-body" style="text-align: center; color: #d32f2f;">Ошибка загрузки обращения</div></div></div>';
+            }
+        }
+
+        function displayTicket(ticket) {
+            const container = document.getElementById('ticketContent');
+            
+            const ticketHTML = `
+                <div class="container">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Обращение #${ticket.id}</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <tbody>
+                                        <tr>
+                                            <th style="width: 150px;">Категория</th>
+                                            <td>
+                                                <span class="status-badge" style="background-color: #f0f0f0; color: #333;">
+                                                    ${getCategoryName(ticket.category)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Тема</th>
+                                            <td>${ticket.subject || 'Не указана'}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Клиент</th>
+                                            <td>@${ticket.telegram_username || 'Не указан'}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Telegram ID</th>
+                                            <td>${ticket.telegram_user_id}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Статус</th>
+                                            <td>
+                                                <span class="status-badge" style="background-color: #f5f5f5; color: #666;">
+                                                    ${getStatusName(ticket.status)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Решение</th>
+                                            <td>
+                                                <span class="status-badge" style="background-color: ${getResolutionColor(ticket.resolution)}; color: white;">
+                                                    ${getResolutionName(ticket.resolution)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Создано</th>
+                                            <td>${formatDate(ticket.created_at)}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Обновлено</th>
+                                            <td>${formatDate(ticket.updated_at)}</td>
+                                        </tr>
+                                        ${ticket.note ? `
+                                        <tr>
+                                            <th>Заметка администратора</th>
+                                            <td>
+                                                <div style="padding: 10px; background-color: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+                                                    ${ticket.note}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        ` : ''}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 20px;">
+                        <div class="card-header">
+                            <h2>История переписки</h2>
+                        </div>
+                        <div class="card-body">
+                            <div id="messagesList">
+                                <div class="loading-row">Загрузка сообщений...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = ticketHTML;
+            loadMessages();
+        }
+
+        async function loadMessages() {
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const messages = await response.json();
+                displayMessages(messages);
+            } catch (error) {
+                console.error('Ошибка загрузки сообщений:', error);
+                document.getElementById('messagesList').innerHTML = 
+                    '<div style="text-align: center; color: #d32f2f; padding: 20px;">Ошибка загрузки сообщений</div>';
+            }
+        }
+
+        function displayMessages(messages) {
+            const container = document.getElementById('messagesList');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">Нет сообщений</div>';
+                return;
+            }
+
+            const messagesHTML = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 120px;">Отправитель</th>
+                                <th>Сообщение</th>
+                                <th style="width: 150px;">Время</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${messages.map(message => `
+                                <tr>
+                                    <td>
+                                        <span class="status-badge" style="background-color: ${message.sender_type === 'client' ? '#e3f2fd' : '#f3e5f5'}; color: ${message.sender_type === 'client' ? '#1976d2' : '#7b1fa2'};">
+                                            ${message.sender_type === 'client' ? `@${ticket.telegram_username || 'Клиент'}` : 'Администратор'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style="word-wrap: break-word; max-width: 400px;">
+                                            ${formatMessageContent(message.content)}
+                                        </div>
+                                    </td>
+                                    <td>${formatDate(message.created_at)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = messagesHTML;
+        }
+
+        function formatMessageContent(content) {
+            // Простая обработка контента сообщения
+            if (!content) return '';
+            
+            // Заменяем переносы строк на <br>
+            content = content.replace(/\n/g, '<br>');
+            
+            // Если это выглядит как URL изображения, показываем как изображение
+            if (content.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                return `<img src="${content}" alt="Изображение" style="max-width: 200px; max-height: 200px; border-radius: 4px;" onerror="this.style.display='none'">`;
+            }
+            
+            return content;
+        }
+
+        function getCategoryName(category) {
+            const names = {
+                'dispute': 'Диспут',
+                'crypto_payment': 'Криптооплата',
+                'general': 'Общие вопросы',
+                'employment': 'Трудоустройство'
+            };
+            return names[category] || category;
+        }
+
+        function getStatusName(status) {
+            const names = {
+                'active': 'Активный',
+                'in_work': 'В работе',
+                'archive': 'Архив'
+            };
+            return names[status] || status;
+        }
+
+        function getResolutionName(resolution) {
+            const names = {
+                'in_work': 'В работе',
+                'refuse': 'Отказ',
+                'refund': 'Возврат'
+            };
+            return names[resolution] || resolution;
+        }
+
+        function getResolutionColor(resolution) {
+            const colors = {
+                'in_work': '#28a745',
+                'refuse': '#dc3545',
+                'refund': '#6f42c1'
+            };
+            return colors[resolution] || '#6c757d';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Не указано';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    </script>
+</body>
+</html>

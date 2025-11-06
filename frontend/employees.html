@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сотрудники - ZAZA Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-employees">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/employees.html" class="nav-link active">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="chat">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="notes">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="header">
+            <div class="header-left">
+                <h1 id="page-title">👥 Сотрудники</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+                <div class="user-menu">
+                    <button class="user-btn" id="profileBtn">
+                        <span class="user-avatar">👤</span>
+                        <span id="username">Admin</span>
+                    </button>
+                </div>
+                <button class="btn btn-danger" id="logoutBtn">
+                    Выйти
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content" id="mainContent">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2>👨‍💼 Управление сотрудниками</h2>
+                        <button class="btn btn-primary" onclick="openAddEmployeeModal()">
+                            <span>+</span> Добавить сотрудника
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="employeesContent">
+                            <div class="loading-row">Загрузка списка сотрудников...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальное окно для добавления/редактирования сотрудника -->
+    <div id="employeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="modalTitle">Добавить сотрудника</h2>
+                <span class="close" onclick="closeEmployeeModal()" style="color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+            </div>
+            <form id="employeeForm">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="employeeName" style="display: block; margin-bottom: 5px; font-weight: 500;">Имя и фамилия</label>
+                    <input type="text" id="employeeName" name="name" required style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="employeeEmail" style="display: block; margin-bottom: 5px; font-weight: 500;">Email</label>
+                    <input type="email" id="employeeEmail" name="email" required style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="employeeRole" style="display: block; margin-bottom: 5px; font-weight: 500;">Роль</label>
+                    <select id="employeeRole" name="role" required style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        <option value="">Выберите роль</option>
+                        <option value="admin">Администратор</option>
+                        <option value="support">Поддержка</option>
+                        <option value="manager">Менеджер</option>
+                        <option value="operator">Оператор</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="employeeStatus" style="display: block; margin-bottom: 5px; font-weight: 500;">Статус</label>
+                    <select id="employeeStatus" name="status" required style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        <option value="active">Активный</option>
+                        <option value="inactive">Неактивный</option>
+                    </select>
+                </div>
+                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEmployeeModal()">
+                        Отмена
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Общий JavaScript -->
+    <script src="/static/base.js"></script>
+    <script>
+        let currentEmployees = [];
+        let isEditMode = false;
+        let editEmployeeId = null;
+
+        // Загрузка сотрудников при старте страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadEmployees();
+        });
+
+        async function loadEmployees() {
+            try {
+                // Заглушка - пока используем статические данные
+                // В будущем здесь будет запрос к API
+                const employees = [
+                    {
+                        id: 1,
+                        name: 'Иван Петров',
+                        email: 'ivan@zaza.com',
+                        role: 'admin',
+                        status: 'active',
+                        created_at: '2024-01-15T10:00:00Z',
+                        last_login: '2024-01-20T14:30:00Z'
+                    },
+                    {
+                        id: 2,
+                        name: 'Мария Сидорова',
+                        email: 'maria@zaza.com',
+                        role: 'support',
+                        status: 'active',
+                        created_at: '2024-01-10T09:00:00Z',
+                        last_login: '2024-01-20T12:15:00Z'
+                    },
+                    {
+                        id: 3,
+                        name: 'Алексей Козлов',
+                        email: 'alex@zaza.com',
+                        role: 'manager',
+                        status: 'inactive',
+                        created_at: '2024-01-05T11:00:00Z',
+                        last_login: '2024-01-18T16:45:00Z'
+                    }
+                ];
+
+                currentEmployees = employees;
+                displayEmployees(employees);
+            } catch (error) {
+                console.error('Ошибка загрузки сотрудников:', error);
+                document.getElementById('employeesContent').innerHTML = 
+                    '<div style="text-align: center; color: #d32f2f; padding: 20px;">Ошибка загрузки списка сотрудников</div>';
+            }
+        }
+
+        function displayEmployees(employees) {
+            const container = document.getElementById('employeesContent');
+            
+            if (employees.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">Нет добавленных сотрудников</div>';
+                return;
+            }
+
+            const gridHTML = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Имя</th>
+                                <th>Email</th>
+                                <th>Роль</th>
+                                <th>Статус</th>
+                                <th>Добавлен</th>
+                                <th>Последний вход</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${employees.map(employee => `
+                                <tr>
+                                    <td>
+                                        <div style="display: flex; align-items: center;">
+                                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #6c5ce7; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px;">
+                                                ${employee.name.split(' ').map(n => n[0]).join('')}
+                                            </div>
+                                            <span>${employee.name}</span>
+                                        </div>
+                                    </td>
+                                    <td>${employee.email}</td>
+                                    <td>
+                                        <span class="status-badge" style="background-color: #e3f2fd; color: #1976d2;">
+                                            ${getRoleName(employee.role)}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-${employee.status}" style="background-color: ${employee.status === 'active' ? '#d4edda' : '#f8d7da'}; color: ${employee.status === 'active' ? '#155724' : '#721c24'};">
+                                            ${getStatusName(employee.status)}
+                                        </span>
+                                    </td>
+                                    <td>${formatDate(employee.created_at)}</td>
+                                    <td>${formatDate(employee.last_login)}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editEmployee(${employee.id})" style="margin-right: 5px;">
+                                            Редактировать
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${employee.id})">
+                                            Удалить
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = gridHTML;
+        }
+
+        function getRoleName(role) {
+            const names = {
+                'admin': 'Администратор',
+                'support': 'Поддержка',
+                'manager': 'Менеджер',
+                'operator': 'Оператор'
+            };
+            return names[role] || role;
+        }
+
+        function getStatusName(status) {
+            const names = {
+                'active': 'Активный',
+                'inactive': 'Неактивный'
+            };
+            return names[status] || status;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Не указано';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function openAddEmployeeModal() {
+            isEditMode = false;
+            editEmployeeId = null;
+            document.getElementById('modalTitle').textContent = 'Добавить сотрудника';
+            document.getElementById('employeeForm').reset();
+            document.getElementById('employeeModal').style.display = 'block';
+        }
+
+        function editEmployee(employeeId) {
+            const employee = currentEmployees.find(e => e.id === employeeId);
+            if (!employee) return;
+
+            isEditMode = true;
+            editEmployeeId = employeeId;
+            document.getElementById('modalTitle').textContent = 'Редактировать сотрудника';
+            
+            document.getElementById('employeeName').value = employee.name;
+            document.getElementById('employeeEmail').value = employee.email;
+            document.getElementById('employeeRole').value = employee.role;
+            document.getElementById('employeeStatus').value = employee.status;
+            
+            document.getElementById('employeeModal').style.display = 'block';
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').style.display = 'none';
+            document.getElementById('employeeForm').reset();
+            isEditMode = false;
+            editEmployeeId = null;
+        }
+
+        function deleteEmployee(employeeId) {
+            const employee = currentEmployees.find(e => e.id === employeeId);
+            if (!employee) return;
+
+            if (confirm(`Вы уверены, что хотите удалить сотрудника "${employee.name}"?`)) {
+                // Здесь будет запрос к API для удаления
+                alert('Функция удаления сотрудника будет реализована в следующих версиях');
+            }
+        }
+
+        // Обработка формы сотрудника
+        document.getElementById('employeeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const employeeData = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                role: formData.get('role'),
+                status: formData.get('status')
+            };
+
+            if (isEditMode) {
+                // Здесь будет запрос к API для обновления
+                alert('Функция редактирования сотрудника будет реализована в следующих версиях');
+            } else {
+                // Здесь будет запрос к API для создания
+                alert('Функция добавления сотрудника будет реализована в следующих версиях');
+            }
+            
+            closeEmployeeModal();
+        });
+
+        // Закрытие модального окна при клике вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('employeeModal');
+            if (event.target === modal) {
+                closeEmployeeModal();
+            }
+        }
+    </script>
+</body>
+</html>

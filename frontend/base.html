@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZAZA - Admin Panel</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="employees">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="active-tickets">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="archive-tickets">
+                        <span>�</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="chat">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="notes">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="header">
+            <div class="header-left">
+                
+                <h1 id="page-title">Главная</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+                <div class="user-menu">
+                    <button class="user-btn" id="profileBtn">
+                        <span class="user-avatar">👤</span>
+                        <span id="username">Admin</span>
+                    </button>
+                </div>
+                <button class="btn btn-danger" id="logoutBtn">
+                    Выйти
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content" id="mainContent">
+            <!-- Контент страницы будет здесь -->
+        </main>
+    </div>
+
+    <!-- Общий JavaScript -->
+    <script src="/static/base.js"></script>
+</body>
+</html>

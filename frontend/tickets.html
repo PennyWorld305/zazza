@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Активные тикеты - ZAZA Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-tickets">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/employees.html" class="nav-link">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link active">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="chat">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="notes">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="header">
+            <div class="header-left">
+                <h1 id="page-title">🎯 Активные тикеты</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+                <div class="user-menu">
+                    <button class="user-btn" id="profileBtn">
+                        <span class="user-avatar">👤</span>
+                        <span id="username">Admin</span>
+                    </button>
+                </div>
+                <button class="btn btn-danger" id="logoutBtn">
+                    Выйти
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content" id="mainContent">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2>📋 Активные обращения</h2>
+                        <button class="btn btn-primary" onclick="refreshTickets()">
+                            <span>🔄</span> Обновить
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table" id="ticketsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Категория</th>
+                                        <th>Заметка</th>
+                                        <th>Клиент</th>
+                                        <th>Telegram ID</th>
+                                        <th>Статус</th>
+                                        <th>Решение</th>
+                                        <th>Создан</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ticketsTableBody">
+                                    <tr>
+                                        <td colspan="9" class="loading-row">Загрузка обращений...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Общий JavaScript -->
+    <script src="/static/base.js"></script>
+    <script>
+        let currentTickets = [];
+
+        // Функции для работы с токенами (локальные копии)
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        function checkAuth() {
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/static/login.html';
+                return false;
+            }
+            return true;
+        }
+
+        // Загрузка тикетов при старте страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM загружен, начинаем инициализацию');
+            console.log('Загружаем тикеты (тестовый режим без авторизации)');
+            loadTickets();
+            
+            // Обновляем каждые 30 секунд
+            setInterval(loadTickets, 30000);
+        });
+
+        async function loadTickets() {
+            console.log('Начинаем загрузку тикетов...');
+            try {
+                console.log('Делаем запрос к /api/tickets/test');
+                const response = await fetch('/api/tickets/test');
+
+                console.log('Ответ получен, статус:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Получен ответ:', data);
+                
+                const allTickets = data.tickets || data;
+                console.log('Получено тикетов:', allTickets.length, allTickets);
+                
+                // Фильтруем только активные тикеты
+                const activeTickets = allTickets.filter(ticket => ticket.status !== 'archive');
+                console.log('Активных тикетов:', activeTickets.length);
+                
+                currentTickets = activeTickets;
+                displayTickets(activeTickets);
+            } catch (error) {
+                console.error('Ошибка загрузки тикетов:', error);
+                document.getElementById('ticketsTableBody').innerHTML = 
+                    '<tr><td colspan="9" style="text-align: center; color: #d32f2f;">Ошибка загрузки обращений: ' + error.message + '</td></tr>';
+            }
+        }
+
+        function displayTickets(tickets) {
+            const tbody = document.getElementById('ticketsTableBody');
+            
+            if (tickets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #999;">Нет активных обращений</td></tr>';
+                return;
+            }
+
+            const rowsHTML = tickets.map(ticket => `
+                <tr>
+                    <td>#${ticket.id}</td>
+                    <td>
+                        <span class="status-badge" style="background-color: #f0f0f0; color: #333;">
+                            ${getCategoryName(ticket.category)}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${ticket.note || 'Без заметки'}
+                        </div>
+                    </td>
+                    <td>@${ticket.telegram_username || 'Не указан'}</td>
+                    <td>${ticket.telegram_user_id}</td>
+                    <td>
+                        <span class="status-badge status-${ticket.status}">
+                            ${getStatusName(ticket.status)}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge resolution-${ticket.resolution}">
+                            ${getResolutionName(ticket.resolution)}
+                        </span>
+                    </td>
+                    <td>${formatDate(ticket.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openTicket(${ticket.id})">
+                            Открыть
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            tbody.innerHTML = rowsHTML;
+        }
+
+        function getCategoryName(category) {
+            const names = {
+                'dispute': 'Диспут',
+                'crypto_payment': 'Криптооплата',
+                'general': 'Общие вопросы',
+                'employment': 'Трудоустройство'
+            };
+            return names[category] || category;
+        }
+
+        function getStatusName(status) {
+            const names = {
+                'active': 'Активный',
+                'in_work': 'В работе',
+                'archive': 'Архив'
+            };
+            return names[status] || status;
+        }
+
+        function getResolutionName(resolution) {
+            const names = {
+                'in_work': 'В работе',
+                'refuse': 'Отказ',
+                'refund': 'Возврат'
+            };
+            return names[resolution] || resolution;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Не указано';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function openTicket(ticketId) {
+            // Переходим на страницу чата с тикетом
+            window.location.href = `/static/ticket-chat.html?id=${ticketId}`;
+        }
+
+        function refreshTickets() {
+            document.getElementById('ticketsTableBody').innerHTML = 
+                '<tr><td colspan="9" class="loading-row">Обновление...</td></tr>';
+            loadTickets();
+        }
+    </script>
+</body>
+</html>

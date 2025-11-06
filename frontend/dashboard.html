@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZAZA - Админ панель</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="#" class="nav-link active" data-section="dashboard">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="employees">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="chat">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="notes">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <h1 id="page-title">Главная</h1>
+        </div>
+        
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+            <div class="user-menu">
+                <button class="user-btn" id="profileBtn">
+                    <span class="user-avatar">👤</span>
+                    <span id="username">Admin</span>
+                </button>
+            </div>
+            <button class="btn btn-danger" id="logoutBtn">
+                Выйти
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="content-section">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🎉 Добро пожаловать в ZAZA!</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 18px; color: var(--text-gray); margin-bottom: 20px;">
+                            <strong>Мощная система управления тикетами обратной связи</strong>
+                        </p>
+                        <p style="font-size: 16px; line-height: 1.8; color: var(--text-gray);">
+                            Управляйте заявками клиентов через Telegram бот, отслеживайте статистику и повышайте качество обслуживания. 
+                            Выберите нужный раздел из бокового меню для начала работы.
+                        </p>
+                        <div style="margin-top: 30px; display: flex; gap: 15px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="document.querySelector('[data-section=active-tickets]').click()">
+                                🎯 Активные тикеты
+                            </button>
+                            <button class="btn" style="background: var(--gradient-accent); color: white;" onclick="window.location.href='/static/tgbot.html'">
+                                🤖 Телеграмм боты
+                            </button>
+                            <button class="btn" style="background: var(--gradient-purple); color: white;" onclick="document.querySelector('[data-section=employees]').click()">
+                                � Сотрудники
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bots Section -->
+        <div id="bots-section" class="content-section hidden">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2>🤖 Телеграмм боты</h2>
+                        <button class="btn btn-primary" onclick="openBotModal()">
+                            <span>+</span> Добавить бота
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table" id="botsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Имя бота</th>
+                                        <th>Telegram имя</th>
+                                        <th>Токен</th>
+                                        <th>Создан</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="botsTableBody">
+                                    <tr>
+                                        <td colspan="6" class="loading-row">Загрузка...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employees Section -->
+        <div id="employees-section" class="content-section hidden">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>👥 Сотрудники</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 16px; color: var(--text-gray); margin-bottom: 20px;">
+                            Управление сотрудниками и их правами доступа
+                        </p>
+                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%); border-radius: 12px;">
+                            <h3 style="color: var(--purple-accent); margin: 0 0 10px 0;">👷‍♂️ В разработке</h3>
+                            <p style="margin: 0; color: var(--text-gray);">Добавление сотрудников, назначение ролей и разрешений</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Tickets Section -->
+        <div id="active-tickets-section" class="content-section hidden">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🎯 Активные тикеты</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 16px; color: var(--text-gray); margin-bottom: 20px;">
+                            Текущие открытые тикеты, требующие обработки
+                        </p>
+                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%); border-radius: 12px;">
+                            <h3 style="color: var(--success-green); margin: 0 0 10px 0;">� В разработке</h3>
+                            <p style="margin: 0; color: var(--text-gray);">Отображение активных тикетов, фильтры и назначение сотрудников</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Archive Tickets Section -->
+        <div id="archive-tickets-section" class="content-section hidden">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📚 Архив тикетов</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 16px; color: var(--text-gray); margin-bottom: 20px;">
+                            Закрытые и обработанные тикеты с возможностью поиска
+                        </p>
+                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%); border-radius: 12px;">
+                            <h3 style="color: var(--success-green); margin: 0 0 10px 0;">📋 В разработке</h3>
+                            <p style="margin: 0; color: var(--text-gray);">История всех тикетов, поиск и экспорт данных</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div id="chat-section" class="content-section hidden">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💬 Чат сотрудников</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 16px; color: var(--text-gray); margin-bottom: 20px;">
+                            Внутренний чат для общения между сотрудниками
+                        </p>
+                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%); border-radius: 12px;">
+                            <h3 style="color: var(--purple-accent); margin: 0 0 10px 0;">💭 В разработке</h3>
+                            <p style="margin: 0; color: var(--text-gray);">Групповой чат, уведомления и обмен файлами</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Section -->
+        <div id="notes-section" class="content-section hidden">
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h2">📝 Заметки</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 16px; color: var(--text-gray); margin-bottom: 20px;">
+                            Персональные и общие заметки для сотрудников
+                        </p>
+                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(251, 191, 36, 0.1) 100%); border-radius: 12px;">
+                            <h3 style="color: #F59E0B; margin: 0 0 10px 0;">📖 В разработке</h3>
+                            <p style="margin: 0; color: var(--text-gray);">Создание заметок, категории и совместное редактирование</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bot Modal -->
+        <div id="botModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="botModalTitle">Добавить бота</h3>
+                    <span class="close" onclick="closeBotModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="botForm">
+                        <div class="form-group">
+                            <label for="botName">Имя бота</label>
+                            <input type="text" id="botName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="botTelegramName">Telegram имя (username)</label>
+                            <input type="text" id="botTelegramName" name="telegram_name" placeholder="@bot_username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="botToken">Токен бота</label>
+                            <input type="text" id="botToken" name="token" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeBotModal()">Отмена</button>
+                    <button type="submit" class="btn btn-primary" onclick="saveBotData()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Подтверждение удаления</h3>
+                    <span class="close" onclick="closeDeleteModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Вы уверены, что хотите удалить бота <span id="deleteBotName"></span>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Отмена</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteBot()">Удалить</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

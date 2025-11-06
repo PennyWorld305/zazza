@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тикет чат - ZAZA Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Чат в рабочей области */
+        .chat-container {
+            height: calc(100vh - 120px);
+            width: 70%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Шапка чата в контейнере */
+        .chat-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .client-info h3 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+        }
+
+        .client-info p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-header-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .chat-header-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Информация о тикете */
+        .ticket-info {
+            background: #fff;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            flex-shrink: 0;
+        }
+
+        .ticket-status {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+        .status-item {
+            display: flex;
+            gap: 5px;
+        }
+
+        .status-label {
+            font-weight: 600;
+        }
+
+        /* Область чата - с автоскроллом */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: white;
+            min-height: 0;
+        }
+
+        /* Кастомный скроллбар */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        /* Сообщения */
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+
+        .message.from-client {
+            justify-content: flex-start;
+        }
+
+        .message.from-admin {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 50%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.from-client .message-bubble {
+            background: white;
+            border: 1px solid #e0e0e0;
+            color: #333;
+        }
+
+        .message.from-admin .message-bubble {
+            background: #007bff;
+            color: white;
+        }
+
+        .message-info {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .message-content {
+            line-height: 1.4;
+        }
+
+        /* Кнопка ответа при наведении */
+        .message {
+            position: relative;
+        }
+
+        .reply-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 5;
+        }
+
+        .message.from-client .reply-btn {
+            right: -60px;
+        }
+
+        .message.from-admin .reply-btn {
+            left: -60px;
+        }
+
+        .message:hover .reply-btn {
+            opacity: 1;
+        }
+
+        .reply-btn:hover {
+            background: #5a6268;
+        }
+
+        /* Цитируемое сообщение */
+        .quoted-message {
+            background: rgba(108, 117, 125, 0.1);
+            border-left: 3px solid #6c757d;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .quoted-author {
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+
+        .quoted-text {
+            color: #666;
+            font-style: italic;
+        }
+
+        /* Панель ответа */
+        .reply-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .reply-panel-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reply-panel-text {
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+            max-height: 40px;
+            overflow: hidden;
+        }
+
+        .cancel-reply {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+        }
+
+        /* Поле ввода - фиксированное снизу */
+        .chat-input {
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .input-form {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .message-input {
+            flex: 1;
+            min-height: 40px;
+            max-height: 120px;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .attach-btn {
+            background: #6c757d;
+            color: white;
+        }
+
+        .send-btn {
+            background: #007bff;
+            color: white;
+        }
+
+        .input-btn:hover {
+            opacity: 0.8;
+        }
+
+        /* Кнопка прокрутки вниз */
+        .scroll-down-btn {
+            position: absolute;
+            bottom: 100px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        
+        .chat-container {
+            position: relative;
+        }
+
+        .scroll-down-btn:hover {
+            background: #0056b3;
+        }
+
+        /* Состояния загрузки */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .no-messages {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        /* Модальное окно для решения */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: modalAppear 0.3s ease-out;
+        }
+
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: #666;
+        }
+
+        .resolution-options {
+            margin: 20px 0;
+        }
+
+        .resolution-option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .resolution-option:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .resolution-option.selected {
+            border-color: #007bff;
+            background: #e7f3ff;
+        }
+
+        .resolution-option input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+
+        .resolution-label {
+            flex: 1;
+        }
+
+        .resolution-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .resolution-description {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .resolution-icon {
+            font-size: 24px;
+            margin-left: 15px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .modal-btn-cancel {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px solid #dee2e6;
+        }
+
+        .modal-btn-cancel:hover {
+            background: #e9ecef;
+        }
+
+        .modal-btn-confirm {
+            background: #007bff;
+            color: white;
+        }
+
+        .modal-btn-confirm:hover {
+            background: #0056b3;
+        }
+
+        .modal-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+
+
+        /* Стили для заметок */
+        .note-input-group {
+            margin-bottom: 20px;
+        }
+
+        .note-input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .note-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.3s ease;
+            background-color: #f8f9fa;
+            box-sizing: border-box;
+        }
+
+        .note-textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            background-color: #ffffff;
+        }
+
+        /* Анимации для уведомлений */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="page-tickets">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">ZAZA</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item">
+                    <a href="/static/dashboard.html" class="nav-link">
+                        <span>🏠</span>
+                        <span>Главная</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tgbot.html" class="nav-link">
+                        <span>🤖</span>
+                        <span>Телеграмм боты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/employees.html" class="nav-link">
+                        <span>👥</span>
+                        <span>Сотрудники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/tickets.html" class="nav-link active">
+                        <span>🎯</span>
+                        <span>Активные тикеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/static/archive.html" class="nav-link">
+                        <span>📋</span>
+                        <span>Архив тикетов</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="chat">
+                        <span>💬</span>
+                        <span>Чат сотрудников</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="notes">
+                        <span>📝</span>
+                        <span>Заметки</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="header">
+            <div class="header-left">
+                <h1 id="page-title">💬 Чат с клиентом</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+                <div class="user-menu">
+                    <button class="user-btn" id="profileBtn">
+                        <span class="user-avatar">👤</span>
+                        <span id="username">Admin</span>
+                    </button>
+                </div>
+                <button class="btn btn-danger" id="logoutBtn">
+                    Выйти
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content" id="mainContent">
+            <div class="container">
+                <div class="chat-container">
+                    <!-- Шапка чата -->
+                    <div class="chat-header">
+                        <div class="client-info">
+                            <h3 id="clientName">Загрузка...</h3>
+                            <p id="clientDetails">Загрузка информации о тикете...</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="chat-header-btn" onclick="openNoteModal()">📝 Заметка</button>
+                            <button class="chat-header-btn" onclick="goBack()">← Назад</button>
+                            <button class="chat-header-btn" onclick="openResolutionModal()">✅ Решение</button>
+                        </div>
+                    </div>
+
+        <!-- Информация о тикете -->
+        <div class="ticket-info" id="ticketInfo">
+            <div class="ticket-status">
+                <div class="status-item">
+                    <span class="status-label">Категория:</span>
+                    <span id="ticketCategory">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Статус:</span>
+                    <span id="ticketStatus">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Решение:</span>
+                    <span id="ticketResolution">-</span>
+                </div>
+            </div>
+            <div id="ticketNote" style="margin-top: 10px; display: none;">
+                <span class="status-label">Заметка:</span> <span id="noteText"></span>
+            </div>
+        </div>
+
+        <!-- Область сообщений -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="loading">Загрузка сообщений...</div>
+        </div>
+
+                    <!-- Кнопка прокрутки вниз -->
+                    <button class="scroll-down-btn" id="scrollDownBtn" onclick="scrollToBottom()">⬇️</button>
+
+                    <!-- Поле ввода -->
+                    <div class="chat-input">
+                        <!-- Панель ответа -->
+                        <div class="reply-panel" id="replyPanel">
+                            <div class="reply-panel-header">
+                                <span>Ответ на сообщение:</span>
+                                <button class="cancel-reply" onclick="cancelReply()">✕</button>
+                            </div>
+                            <div class="reply-panel-text" id="replyPanelText"></div>
+                        </div>
+                        
+                        <div class="input-form">
+                            <textarea 
+                                id="messageInput" 
+                                class="message-input" 
+                                placeholder="Введите сообщение... (Enter для отправки, Shift+Enter для новой строки)"
+                                onkeydown="handleKeyDown(event)"
+                            ></textarea>
+                            <div class="input-actions">
+                                <button class="input-btn attach-btn" onclick="attachFile()" title="Прикрепить файл">
+                                    📎
+                                </button>
+                                <button class="input-btn send-btn" onclick="sendMessage()" title="Отправить">
+                                    ➤
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/base.js"></script>
+    <script>
+        let currentTicket = null;
+        let ticketId = null;
+        let lastMessagesCount = 0;
+        let updateInterval = null;
+        let replyingToMessage = null;
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            ticketId = urlParams.get('id');
+            
+            if (!ticketId) {
+                alert('ID тикета не указан');
+                goBack();
+                return;
+            }
+            
+            loadTicket();
+            startAutoUpdate();
+            setupScrollHandler();
+            setupModalHandlers();
+        });
+
+        // Загрузка тикета
+        async function loadTicket() {
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const ticket = await response.json();
+                
+                // Если это первая загрузка - обновляем всё
+                if (!currentTicket) {
+                    currentTicket = ticket;
+                    updateTicketInfo(ticket);
+                    updateMessages(ticket.messages);
+                    lastMessagesCount = ticket.messages ? ticket.messages.length : 0;
+                    return;
+                }
+                
+                // Проверяем что изменилось
+                const infoChanged = 
+                    currentTicket.status !== ticket.status ||
+                    currentTicket.resolution !== ticket.resolution ||
+                    currentTicket.note !== ticket.note;
+                
+                const messagesChanged = 
+                    ticket.messages && 
+                    ticket.messages.length !== lastMessagesCount;
+                
+                if (infoChanged) {
+                    updateTicketInfo(ticket);
+                }
+                
+                if (messagesChanged) {
+                    updateMessages(ticket.messages);
+                    lastMessagesCount = ticket.messages.length;
+                }
+                
+                currentTicket = ticket;
+                
+            } catch (error) {
+                console.error('Ошибка загрузки тикета:', error);
+                document.getElementById('chatMessages').innerHTML = 
+                    '<div class="loading">Ошибка загрузки тикета</div>';
+            }
+        }
+
+        // Обновление информации о тикете
+        function updateTicketInfo(ticket) {
+            document.getElementById('clientName').textContent = 
+                `@${ticket.telegram_username || 'Не указан'}`;
+            document.getElementById('clientDetails').textContent = 
+                `ID: ${ticket.telegram_user_id} • Тикет #${ticket.id}`;
+            
+            document.getElementById('ticketCategory').textContent = getCategoryName(ticket.category);
+            document.getElementById('ticketStatus').textContent = getStatusName(ticket.status);
+            document.getElementById('ticketResolution').textContent = getResolutionName(ticket.resolution);
+            
+            const noteElement = document.getElementById('ticketNote');
+            if (ticket.note) {
+                document.getElementById('noteText').textContent = ticket.note;
+                noteElement.style.display = 'block';
+            } else {
+                noteElement.style.display = 'none';
+            }
+        }
+
+        // Обновление только сообщений
+        function updateMessages(messages) {
+            const container = document.getElementById('chatMessages');
+            const wasAtBottom = isScrollAtBottom();
+            
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<div class="no-messages">Нет сообщений</div>';
+                return;
+            }
+
+            const messagesHTML = messages.map((message, index) => {
+                return `
+                    <div class="message ${message.is_from_admin ? 'from-admin' : 'from-client'}" data-message-id="${message.id}">
+                        <div class="message-bubble">
+                            <div class="message-info">
+                                ${message.is_from_admin ? 'Админ' : 'Клиент'} • ${formatDateTimeUTC10(message.created_at)}
+                            </div>
+                            <div class="message-content">
+                                ${escapeHtml(message.content)}
+                                ${message.file_id ? `<br><br>📎 Файл: ${message.file_id}` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = messagesHTML;
+            
+            // Автоскролл только если пользователь был внизу
+            if (wasAtBottom) {
+                setTimeout(() => scrollToBottom(), 100);
+            }
+            
+            updateScrollButton();
+        }
+
+        // Проверка, находится ли пользователь внизу чата
+        function isScrollAtBottom() {
+            const container = document.getElementById('chatMessages');
+            const threshold = 50;
+            return container.scrollTop >= (container.scrollHeight - container.clientHeight - threshold);
+        }
+
+        // Прокрутка вниз
+        function scrollToBottom() {
+            const container = document.getElementById('chatMessages');
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Обновление видимости кнопки прокрутки
+        function updateScrollButton() {
+            const btn = document.getElementById('scrollDownBtn');
+            const isAtBottom = isScrollAtBottom();
+            btn.style.display = isAtBottom ? 'none' : 'flex';
+        }
+
+        // Настройка обработчика скролла
+        function setupScrollHandler() {
+            const container = document.getElementById('chatMessages');
+            container.addEventListener('scroll', updateScrollButton);
+        }
+
+        // Автообновление каждые 5 секунд
+        function startAutoUpdate() {
+            updateInterval = setInterval(loadTicket, 5000);
+        }
+
+        // Остановка автообновления
+        function stopAutoUpdate() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        // Обработка нажатий клавиш в поле ввода
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Отправка сообщения
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            
+            if (!content) return;
+
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        message_type: 'text'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                input.value = '';
+                
+                // Принудительно обновляем сообщения
+                setTimeout(() => {
+                    loadTicket();
+                    scrollToBottom();
+                }, 200);
+                
+            } catch (error) {
+                console.error('Ошибка отправки сообщения:', error);
+                alert('Ошибка отправки сообщения');
+            }
+        }
+
+        // Прикрепление файла
+        function attachFile() {
+            alert('Функция прикрепления файлов будет реализована позже');
+        }
+
+        // Возврат к списку тикетов
+        function goBack() {
+            stopAutoUpdate();
+            window.location.href = '/static/tickets.html';
+        }
+
+        // Открытие модального окна заметки
+        function openNoteModal() {
+            const noteModal = document.getElementById('noteModal');
+            const noteText = document.getElementById('noteText');
+            
+            // Заполняем текущую заметку, если она есть
+            noteText.value = currentTicket?.note || '';
+            
+            // Показываем модальное окно с анимацией
+            noteModal.style.display = 'flex';
+            setTimeout(() => {
+                noteText.focus();
+            }, 100);
+        }
+
+        // Закрытие модального окна заметки
+        function closeNoteModal() {
+            const noteModal = document.getElementById('noteModal');
+            noteModal.style.display = 'none';
+            
+            // Очищаем поле
+            document.getElementById('noteText').value = '';
+        }
+
+        // Сохранение заметки
+        async function saveNote() {
+            const noteText = document.getElementById('noteText').value.trim();
+            
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({ note: noteText })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Закрываем модальное окно
+                closeNoteModal();
+                
+                // Перезагружаем информацию о тикете
+                await loadTicket();
+                
+                // Показываем уведомление об успехе
+                showNotification('Заметка успешно сохранена', 'success');
+                
+            } catch (error) {
+                console.error('Ошибка сохранения заметки:', error);
+                showNotification('Ошибка сохранения заметки', 'error');
+            }
+        }
+
+        // Функция для показа уведомлений
+        function showNotification(message, type = 'info') {
+            // Создаем элемент уведомления
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007bff'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 3000;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Автоматически убираем уведомление через 3 секунды
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Настройка обработчиков модальных окон
+        function setupModalHandlers() {
+            // Закрытие модального окна заметок при клике вне его
+            document.getElementById('noteModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeNoteModal();
+                }
+            });
+            
+            // Закрытие модального окна решения при клике вне его
+            document.getElementById('resolutionModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeResolutionModal();
+                }
+            });
+            
+            // Обработка нажатия клавиш для модального окна заметок
+            document.addEventListener('keydown', function(e) {
+                const noteModal = document.getElementById('noteModal');
+                if (noteModal.style.display === 'flex') {
+                    if (e.key === 'Escape') {
+                        closeNoteModal();
+                    } else if (e.ctrlKey && e.key === 'Enter') {
+                        saveNote();
+                    }
+                }
+            });
+        }
+
+        // Открытие модального окна решения
+        function openResolutionModal() {
+            document.getElementById('resolutionModal').style.display = 'flex';
+            // Сбрасываем выбор
+            document.querySelectorAll('input[name="resolution"]').forEach(radio => {
+                radio.checked = false;
+            });
+            document.querySelectorAll('.resolution-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            document.getElementById('confirmResolution').disabled = true;
+        }
+
+        // Закрытие модального окна
+        function closeResolutionModal() {
+            document.getElementById('resolutionModal').style.display = 'none';
+        }
+
+        // Выбор решения
+        function selectResolution(value) {
+            // Убираем выделение со всех опций
+            document.querySelectorAll('.resolution-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Выделяем выбранную опцию
+            const selectedOption = document.querySelector(`input[value="${value}"]`).closest('.resolution-option');
+            selectedOption.classList.add('selected');
+            
+            // Отмечаем радиокнопку
+            document.getElementById(value).checked = true;
+            
+            // Активируем кнопку подтверждения
+            document.getElementById('confirmResolution').disabled = false;
+        }
+
+        // Подтверждение решения
+        function confirmResolution() {
+            const selectedResolution = document.querySelector('input[name="resolution"]:checked');
+            if (selectedResolution) {
+                saveResolution(selectedResolution.value);
+                closeResolutionModal();
+            }
+        }
+
+        // Закрытие модального окна по клику на overlay
+        document.getElementById('resolutionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeResolutionModal();
+            }
+        });
+
+        // Сохранение решения
+        async function saveResolution(resolution) {
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({ 
+                        resolution: resolution,
+                        status: 'archive'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                alert('Решение принято. Тикет перемещен в архив.');
+                goBack();
+                
+            } catch (error) {
+                console.error('Ошибка принятия решения:', error);
+                alert('Ошибка принятия решения');
+            }
+        }
+
+        // Вспомогательные функции
+        function getCategoryName(category) {
+            const names = {
+                'dispute': 'Диспут',
+                'crypto_payment': 'Криптооплата',
+                'general': 'Общие вопросы',
+                'employment': 'Трудоустройство'
+            };
+            return names[category] || category;
+        }
+
+        function getStatusName(status) {
+            const names = {
+                'active': 'Активный',
+                'archive': 'В архиве'
+            };
+            return names[status] || status;
+        }
+
+        function getResolutionName(resolution) {
+            const names = {
+                'refuse': 'Отказ',
+                'refund': 'Возврат',
+                'pending': 'Ожидание'
+            };
+            return names[resolution] || resolution || 'Не указано';
+        }
+
+        function formatDateTime(dateTimeStr) {
+            const date = new Date(dateTimeStr);
+            return date.toLocaleString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Функция форматирования времени с UTC+10
+        function formatDateTimeUTC10(dateTimeStr) {
+            const date = new Date(dateTimeStr);
+            // Добавляем 10 часов к UTC времени
+            const utc10Date = new Date(date.getTime() + (10 * 60 * 60 * 1000));
+            
+            return utc10Date.toLocaleString('ru-RU', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+
+
+        // Очистка при уходе со страницы
+        window.addEventListener('beforeunload', function() {
+            stopAutoUpdate();
+        });
+    </script>
+
+    <!-- Модальное окно для принятия решения -->
+    <div class="modal-overlay" id="resolutionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Принятие решения по тикету</h3>
+                <button class="modal-close" onclick="closeResolutionModal()">×</button>
+            </div>
+            
+            <p style="color: #666; margin-bottom: 20px;">
+                Выберите решение по данному обращению. После выбора тикет будет перемещен в архив.
+            </p>
+
+            <div class="resolution-options">
+                <label class="resolution-option" onclick="selectResolution('refuse')">
+                    <input type="radio" name="resolution" value="refuse" id="refuse">
+                    <div class="resolution-label">
+                        <div class="resolution-title">Отказ</div>
+                        <div class="resolution-description">Отклонить обращение клиента</div>
+                    </div>
+                    <div class="resolution-icon">❌</div>
+                </label>
+
+                <label class="resolution-option" onclick="selectResolution('refund')">
+                    <input type="radio" name="resolution" value="refund" id="refund">
+                    <div class="resolution-label">
+                        <div class="resolution-title">Возврат</div>
+                        <div class="resolution-description">Одобрить возврат средств клиенту</div>
+                    </div>
+                    <div class="resolution-icon">✅</div>
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" onclick="closeResolutionModal()">
+                    Отмена
+                </button>
+                <button class="modal-btn modal-btn-confirm" id="confirmResolution" onclick="confirmResolution()" disabled>
+                    Принять решение
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления заметки -->
+    <div class="modal-overlay" id="noteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📝 Заметка к тикету</h3>
+                <button class="modal-close" onclick="closeNoteModal()">×</button>
+            </div>
+            
+            <p style="color: #666; margin-bottom: 20px;">
+                Добавьте заметку к тикету для сохранения важной информации или комментариев.
+            </p>
+            
+            <div class="note-input-group">
+                <label for="noteText">Введите вашу заметку:</label>
+                <textarea 
+                    id="noteText" 
+                    class="note-textarea" 
+                    placeholder="Введите заметку о тикете, важные детали или комментарии..."
+                    maxlength="1000"
+                ></textarea>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" onclick="closeNoteModal()">
+                    Отмена
+                </button>
+                <button class="modal-btn modal-btn-confirm" onclick="saveNote()">
+                    Сохранить заметку
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
