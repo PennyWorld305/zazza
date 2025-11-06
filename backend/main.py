@@ -9,6 +9,11 @@ import uvicorn
 import requests
 import asyncio
 import logging
+import os
+import uuid
+import shutil
+from pathlib import Path
+from typing import Optional
 
 from database import get_db, User, TelegramBot, Employee, ActiveTicket, ArchiveTicket, EmployeeChat, Note, TicketMessage, create_tables
 from auth import verify_password, get_password_hash, create_access_token, verify_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -28,6 +33,18 @@ app.add_middleware(
 import os
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+# Media files - попробуем простой подход
+@app.get("/media/{file_path:path}")
+def serve_media_files(file_path: str):
+    """Прямая отдача медиа файлов"""
+    backend_dir = Path(__file__).parent
+    full_path = backend_dir / "media" / file_path
+    
+    if full_path.exists() and full_path.is_file():
+        return FileResponse(full_path)
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
 
 # Security управляется в auth.py
 
@@ -67,6 +84,73 @@ def send_telegram_message(user_id: str, message: str, db: Session) -> bool:
     except Exception as e:
         logger.error(f"Исключение при отправке сообщения: {e}")
         return False
+
+# Функции для работы с медиафайлами
+async def download_telegram_file(file_id: str, file_type: str, db: Session) -> Optional[dict]:
+    """Скачивает файл из Telegram и сохраняет на сервере"""
+    try:
+        # Получаем активного бота из БД
+        bot = db.query(TelegramBot).filter(TelegramBot.is_active == True).first()
+        if not bot:
+            logger.error("Не найден активный бот для скачивания файла")
+            return None
+        
+        # Получаем информацию о файле
+        get_file_url = f"https://api.telegram.org/bot{bot.token}/getFile"
+        get_file_response = requests.get(get_file_url, params={"file_id": file_id})
+        
+        if get_file_response.status_code != 200:
+            logger.error(f"Ошибка получения информации о файле: {get_file_response.text}")
+            return None
+        
+        file_info = get_file_response.json()["result"]
+        file_path = file_info["file_path"]
+        file_size = file_info.get("file_size", 0)
+        
+        # Создаем уникальное имя файла
+        file_extension = Path(file_path).suffix
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        
+        # Определяем папку для сохранения
+        media_folder = {
+            "photo": "photos",
+            "video": "videos", 
+            "document": "documents"
+        }.get(file_type, "documents")
+        
+        # Создаем путь для сохранения
+        save_dir = Path("media") / media_folder
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = save_dir / unique_filename
+        
+        # Скачиваем файл
+        download_url = f"https://api.telegram.org/file/bot{bot.token}/{file_path}"
+        download_response = requests.get(download_url, stream=True)
+        
+        if download_response.status_code != 200:
+            logger.error(f"Ошибка скачивания файла: {download_response.text}")
+            return None
+        
+        # Сохраняем файл
+        with open(save_path, "wb") as f:
+            shutil.copyfileobj(download_response.raw, f)
+        
+        return {
+            "local_path": f"{media_folder}/{unique_filename}",  # Относительный путь от media/
+            "original_filename": Path(file_path).name,
+            "file_size": file_size
+        }
+        
+    except Exception as e:
+        logger.error(f"Исключение при скачивании файла: {e}")
+        return None
+
+def get_media_url(local_file_path: str) -> str:
+    """Генерирует URL для доступа к медиафайлу"""
+    if not local_file_path:
+        return ""
+    # Преобразуем путь в URL для API
+    return f"/api/media/{local_file_path.replace(os.sep, '/')}"
 
 # Models
 class UserLogin(BaseModel):
@@ -332,6 +416,9 @@ def get_ticket_details(ticket_id: int, db: Session = Depends(get_db), current_us
             "message_type": msg.message_type,
             "content": msg.content,
             "file_id": msg.file_id,
+            "local_file_path": msg.local_file_path,
+            "original_filename": msg.original_filename,
+            "file_size": msg.file_size,
             "is_from_admin": msg.is_from_admin,
             "created_at": msg.created_at.isoformat() if msg.created_at else None
         })
@@ -451,6 +538,51 @@ def send_message_to_ticket(ticket_id: int, request: SendMessageRequest, db: Sess
         return {"message": "Сообщение отправлено"}
     else:
         raise HTTPException(status_code=500, detail="Ошибка отправки сообщения в Telegram")
+
+@app.get("/api/media/{file_path:path}")
+def get_media_file(file_path: str):
+    """Отдает медиафайлы (фото, видео, документы)"""
+    try:
+        # Безопасно формируем путь к файлу в backend/media/
+        backend_dir = Path(__file__).parent
+        file_full_path = backend_dir / "media" / file_path
+        media_dir = backend_dir / "media"
+        
+        # Проверяем, что файл существует и находится в папке media
+        if not file_full_path.exists() or not str(file_full_path.resolve()).startswith(str(media_dir.resolve())):
+            raise HTTPException(status_code=404, detail="Файл не найден")
+        
+        # Определяем MIME-type
+        mime_types = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg', 
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.mp4': 'video/mp4',
+            '.avi': 'video/avi',
+            '.mov': 'video/quicktime',
+            '.pdf': 'application/pdf',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        }
+        
+        file_extension = file_full_path.suffix.lower()
+        media_type = mime_types.get(file_extension, 'application/octet-stream')
+        
+        return FileResponse(
+            path=str(file_full_path),
+            media_type=media_type,
+            filename=file_full_path.name
+        )
+        
+    except Exception as e:
+        logger.error(f"Ошибка при отдаче медиафайла {file_path}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка сервера")
+
+@app.get("/backend/media/{file_path:path}")
+def get_backend_media_file(file_path: str):
+    """Альтернативный маршрут для медиафайлов через /backend/media/"""
+    return get_media_file(file_path)
 
 if __name__ == "__main__":
     create_tables()

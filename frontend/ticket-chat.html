@@ -568,6 +568,72 @@
                 opacity: 0;
             }
         }
+
+        /* Стили для медиафайлов */
+        .message-photo {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .message-photo:hover {
+            transform: scale(1.02);
+        }
+
+        .message-video {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .message-document {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .message-document:hover {
+            background: #e9ecef;
+            text-decoration: none;
+            color: #0056b3;
+        }
+
+        /* Модальное окно для просмотра изображений */
+        .image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .image-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .image-modal-close:hover {
+            color: #ccc;
+        }
     </style>
 </head>
 <body class="page-tickets">
@@ -833,6 +899,31 @@
             }
 
             const messagesHTML = messages.map((message, index) => {
+                // Функция для генерации медиа-контента
+                const getMediaContent = (message) => {
+                    if (!message.file_id && !message.local_file_path) return '';
+                    
+                    const mediaUrl = message.local_file_path ? `/media/${message.local_file_path}` : null;
+                    const fileName = message.original_filename || message.file_id;
+                    
+                    switch(message.message_type) {
+                        case 'photo':
+                            return mediaUrl ? 
+                                `<br><br><img src="${mediaUrl}" alt="Фото" class="message-photo" onclick="openImageModal('${mediaUrl}')" style="max-width: 300px; max-height: 200px; cursor: pointer; border-radius: 8px;">` :
+                                `<br><br>📷 Фото: ${fileName}`;
+                        case 'video':
+                            return mediaUrl ? 
+                                `<br><br><video controls class="message-video" style="max-width: 300px; max-height: 200px; border-radius: 8px;"><source src="${mediaUrl}" type="video/mp4">Ваш браузер не поддерживает видео.</video>` :
+                                `<br><br>🎥 Видео: ${fileName}`;
+                        case 'document':
+                            return mediaUrl ? 
+                                `<br><br><a href="${mediaUrl}" target="_blank" class="message-document">📄 ${fileName}</a>` :
+                                `<br><br>📄 Документ: ${fileName}`;
+                        default:
+                            return message.file_id ? `<br><br>📎 Файл: ${fileName}` : '';
+                    }
+                };
+
                 return `
                     <div class="message ${message.is_from_admin ? 'from-admin' : 'from-client'}" data-message-id="${message.id}">
                         <div class="message-bubble">
@@ -841,7 +932,7 @@
                             </div>
                             <div class="message-content">
                                 ${escapeHtml(message.content)}
-                                ${message.file_id ? `<br><br>📎 Файл: ${message.file_id}` : ''}
+                                ${getMediaContent(message)}
                             </div>
                         </div>
                     </div>
@@ -1215,6 +1306,27 @@
 
 
 
+        // Функции для работы с модальным окном изображений
+        function openImageModal(imageSrc) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            
+            modalImage.src = imageSrc;
+            modal.style.display = 'flex';
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.style.display = 'none';
+        }
+
+        // Закрытие модального окна по нажатию ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+
         // Очистка при уходе со страницы
         window.addEventListener('beforeunload', function() {
             stopAutoUpdate();
@@ -1295,6 +1407,12 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <!-- Модальное окно для просмотра изображений -->
+    <div class="image-modal" id="imageModal" onclick="closeImageModal()">
+        <button class="image-modal-close" onclick="closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="Увеличенное изображение">
     </div>
 </body>
 </html>

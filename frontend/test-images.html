@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест изображений</title>
+</head>
+<body>
+    <h1>Тест API изображений</h1>
+    
+    <h2>Тест /api/media/ пути:</h2>
+    <img src="/api/media/photos/2d6baa05-07bc-4531-9316-71769a3f835b.jpg" style="max-width: 300px;">
+    <br><br>
+    
+    <h2>Тест /media/ пути (статические файлы):</h2>
+    <img src="/media/photos/2d6baa05-07bc-4531-9316-71769a3f835b.jpg" style="max-width: 300px;">
+    <br><br>
+    <img src="/media/photos/6cc49ebe-8f91-4c25-a102-91e7cc073031.jpg" style="max-width: 300px;">
+    <br><br>
+    <img src="/media/photos/765e4a3d-a947-47c4-a283-cdd9ecf57acd.jpg" style="max-width: 300px;">
+    
+    <h2>JavaScript тест:</h2>
+    <button onclick="testImageLoad()">Тест загрузки</button>
+    <div id="result"></div>
+    
+    <script>
+    function testImageLoad() {
+        const img = new Image();
+        img.onload = function() {
+            document.getElementById('result').innerHTML = 'Изображение загружено успешно: ' + img.src;
+        };
+        img.onerror = function() {
+            document.getElementById('result').innerHTML = 'Ошибка загрузки изображения: ' + img.src;
+        };
+        img.src = '/media/photos/2d6baa05-07bc-4531-9316-71769a3f835b.jpg';
+    }
+    </script>
+</body>
+</html>

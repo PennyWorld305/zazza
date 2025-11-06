@@ -14,6 +14,10 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
+import requests
+import uuid
+import shutil
+from pathlib import Path
 
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, CallbackQueryHandler, ContextTypes
@@ -90,6 +94,68 @@ class ZAZABot:
         
         self.engine = engine
         self.session_maker = SessionLocal
+
+    async def download_telegram_file(self, file_id: str, file_type: str) -> Optional[dict]:
+        """Скачивает файл из Telegram и сохраняет на сервере"""
+        try:
+            # Получаем информацию о файле
+            get_file_url = f"https://api.telegram.org/bot{self.bot_token}/getFile"
+            get_file_response = requests.get(get_file_url, params={"file_id": file_id})
+            
+            if get_file_response.status_code != 200:
+                logger.error(f"Ошибка получения информации о файле: {get_file_response.text}")
+                return None
+            
+            file_info = get_file_response.json()["result"]
+            file_path = file_info["file_path"]
+            file_size = file_info.get("file_size", 0)
+            
+            # Проверяем размер файла (Telegram Bot API ограничение 20 МБ)
+            max_size_mb = 20
+            max_size_bytes = max_size_mb * 1024 * 1024
+            
+            if file_size > max_size_bytes:
+                logger.warning(f"Файл слишком большой для скачивания: {file_size / (1024*1024):.1f} МБ (максимум {max_size_mb} МБ)")
+                return None
+            
+            # Создаем уникальное имя файла
+            file_extension = Path(file_path).suffix
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            
+            # Определяем папку для сохранения
+            media_folder = {
+                "photo": "photos",
+                "video": "videos", 
+                "document": "documents"
+            }.get(file_type, "documents")
+            
+            # Создаем путь для сохранения в backend/media/
+            backend_dir = Path(__file__).parent  # Папка где находится bot.py
+            save_dir = backend_dir / "media" / media_folder
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = save_dir / unique_filename
+            
+            # Скачиваем файл
+            download_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
+            download_response = requests.get(download_url, stream=True)
+            
+            if download_response.status_code != 200:
+                logger.error(f"Ошибка скачивания файла: {download_response.text}")
+                return None
+            
+            # Сохраняем файл
+            with open(save_path, "wb") as f:
+                shutil.copyfileobj(download_response.raw, f)
+            
+            return {
+                "local_path": f"{media_folder}/{unique_filename}",  # Относительный путь от media/
+                "original_filename": Path(file_path).name,
+                "file_size": file_size
+            }
+            
+        except Exception as e:
+            logger.error(f"Исключение при скачивании файла: {e}")
+            return None
 
     def setup_application(self):
         """Настройка Telegram Application"""
@@ -811,6 +877,7 @@ class ZAZABot:
     
     async def save_ticket_message(self, ticket_id: int, user_id: int, message):
         """Сохранение сообщения тикета в БД"""
+        file_download_failed = False
         try:
             from database import TicketMessage
             
@@ -819,19 +886,52 @@ class ZAZABot:
                 message_type = "text"
                 content = message.text or ""
                 file_id = None
+                local_file_path = None
+                original_filename = None
+                file_size = None
                 
                 if message.photo:
                     message_type = "photo"
                     file_id = message.photo[-1].file_id
                     content = message.caption or ""
+                    
+                    # Скачиваем фото
+                    file_info = await self.download_telegram_file(file_id, "photo")
+                    if file_info:
+                        local_file_path = file_info["local_path"]
+                        original_filename = file_info["original_filename"]
+                        file_size = file_info["file_size"]
+                    else:
+                        file_download_failed = True
+                        
                 elif message.video:
                     message_type = "video"
                     file_id = message.video.file_id
                     content = message.caption or ""
+                    
+                    # Скачиваем видео
+                    file_info = await self.download_telegram_file(file_id, "video")
+                    if file_info:
+                        local_file_path = file_info["local_path"]
+                        original_filename = file_info["original_filename"]
+                        file_size = file_info["file_size"]
+                    else:
+                        # Файл не удалось скачать (возможно, слишком большой)
+                        file_download_failed = True
+                        
                 elif message.document:
                     message_type = "document"
                     file_id = message.document.file_id
                     content = message.caption or ""
+                    
+                    # Скачиваем документ
+                    file_info = await self.download_telegram_file(file_id, "document")
+                    if file_info:
+                        local_file_path = file_info["local_path"]
+                        original_filename = file_info["original_filename"] or message.document.file_name
+                        file_size = file_info["file_size"] or message.document.file_size
+                    else:
+                        file_download_failed = True
                 
                 # Создаем запись о сообщении
                 ticket_message = TicketMessage(
@@ -840,6 +940,9 @@ class ZAZABot:
                     message_type=message_type,
                     content=content,
                     file_id=file_id,
+                    local_file_path=local_file_path,
+                    original_filename=original_filename,
+                    file_size=file_size,
                     is_from_admin=False
                 )
                 
@@ -847,9 +950,11 @@ class ZAZABot:
                 session.commit()
                 
                 logger.info(f"Сохранено сообщение для тикета #{ticket_id}")
+                return {"success": True, "file_download_failed": file_download_failed}
                 
         except Exception as e:
             logger.error(f"Ошибка сохранения сообщения тикета: {e}")
+            return {"success": False, "file_download_failed": file_download_failed}
 
     # === ЗАПУСК И ОСТАНОВКА БОТА ===
     
@@ -888,12 +993,23 @@ class ZAZABot:
         
         if existing_ticket_id:
             # Сохраняем сообщение в тикет
-            await self.save_ticket_message(existing_ticket_id, user.id, update.message)
+            result = await self.save_ticket_message(existing_ticket_id, user.id, update.message)
             
-            await update.message.reply_text(
-                f"✅ Ваше сообщение добавлено к тикету #{existing_ticket_id}\n\n"
-                "Администратор получил уведомление и ответит в ближайшее время."
-            )
+            if result and result["success"]:
+                response_text = f"✅ Ваше сообщение добавлено к тикету #{existing_ticket_id}\n\n"
+                
+                if result["file_download_failed"]:
+                    response_text += "⚠️ Внимание: Файл слишком большой для автоматического сохранения (максимум 20 МБ).\n" \
+                                   
+                
+                response_text += "Администратор получил уведомление и ответит в ближайшее время."
+                
+                await update.message.reply_text(response_text)
+            else:
+                await update.message.reply_text(
+                    f"❌ Произошла ошибка при сохранении сообщения в тикет #{existing_ticket_id}\n\n"
+                    "Попробуйте отправить сообщение еще раз."
+                )
         else:
             # Если нет активного тикета, предлагаем создать новый
             await update.message.reply_text(

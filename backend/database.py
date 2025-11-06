@@ -115,6 +115,9 @@ class TicketMessage(Base):
     message_type = Column(String, nullable=False)  # text, photo, video, document
     content = Column(Text)  # Текст сообщения или описание
     file_id = Column(String)  # ID файла в Telegram (для медиа)
+    local_file_path = Column(String)  # Локальный путь к сохраненному файлу на сервере
+    original_filename = Column(String)  # Оригинальное имя файла
+    file_size = Column(Integer)  # Размер файла в байтах
     is_from_admin = Column(Boolean, default=False)  # Сообщение от админа или клиента
     created_at = Column(DateTime, default=datetime.utcnow)
     
