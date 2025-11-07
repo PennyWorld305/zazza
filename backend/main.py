@@ -844,6 +844,96 @@ def toggle_client_block(client_id: int, db: Session = Depends(get_db), current_u
         "is_blocked": client.is_blocked
     }
 
+# === ЗАМЕТКИ ===
+
+class NoteCreate(BaseModel):
+    title: str
+    content: str
+
+class NoteUpdate(BaseModel):
+    title: str
+    content: str
+
+@app.get("/api/notes")
+def get_notes(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Получить все заметки текущего пользователя"""
+    
+    notes = db.query(Note).filter(Note.user_id == current_user["id"]).order_by(Note.updated_at.desc()).all()
+    
+    notes_data = []
+    for note in notes:
+        notes_data.append({
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "created_at": note.created_at.isoformat() if note.created_at else None,
+            "updated_at": note.updated_at.isoformat() if note.updated_at else None
+        })
+    
+    return {"notes": notes_data}
+
+@app.post("/api/notes")
+def create_note(note_data: NoteCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Создать новую заметку"""
+    
+    note = Note(
+        user_id=current_user["id"],
+        title=note_data.title,
+        content=note_data.content
+    )
+    
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    
+    return {
+        "message": "Заметка создана успешно",
+        "note": {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "created_at": note.created_at.isoformat() if note.created_at else None,
+            "updated_at": note.updated_at.isoformat() if note.updated_at else None
+        }
+    }
+
+@app.put("/api/notes/{note_id}")
+def update_note(note_id: int, note_data: NoteUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Обновить заметку"""
+    
+    note = db.query(Note).filter(Note.id == note_id, Note.user_id == current_user["id"]).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Заметка не найдена")
+    
+    note.title = note_data.title
+    note.content = note_data.content
+    db.commit()
+    db.refresh(note)
+    
+    return {
+        "message": "Заметка обновлена успешно",
+        "note": {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "created_at": note.created_at.isoformat() if note.created_at else None,
+            "updated_at": note.updated_at.isoformat() if note.updated_at else None
+        }
+    }
+
+@app.delete("/api/notes/{note_id}")
+def delete_note(note_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Удалить заметку"""
+    
+    note = db.query(Note).filter(Note.id == note_id, Note.user_id == current_user["id"]).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Заметка не найдена")
+    
+    db.delete(note)
+    db.commit()
+    
+    return {"message": "Заметка удалена успешно"}
+
 if __name__ == "__main__":
     create_tables()
     uvicorn.run(app, host="0.0.0.0", port=8000)
