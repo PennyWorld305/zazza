@@ -193,6 +193,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="clients" id="nav-clients">
+                        <span>👤</span>
+                        <span>Клиенты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#" class="nav-link" data-section="tickets" id="nav-tickets">
                         <span>🎯</span>
                         <span>Активные тикеты</span>
@@ -359,6 +365,7 @@
     </div>
 
     <script src="auth.js"></script>
+    <script src="base.js"></script>
     <script>
         // Загрузка данных профиля
         async function loadProfile() {
@@ -648,6 +655,9 @@
                 console.error('Ошибка загрузки профиля:', error);
             }
         }
+
+        // Инициализируем базовый менеджер для навигации
+        const dashboardManager = new BaseDashboardManager();
     </script>
 </body>
 </html>

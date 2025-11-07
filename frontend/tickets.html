@@ -157,8 +157,13 @@
         async function loadTickets() {
             console.log('Начинаем загрузку тикетов...');
             try {
-                console.log('Делаем запрос к /api/tickets/test');
-                const response = await fetch('/api/tickets/test');
+                console.log('Делаем запрос к /api/tickets');
+                const token = getToken();
+                const response = await fetch('/api/tickets', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
 
                 console.log('Ответ получен, статус:', response.status);
                 if (!response.ok) {
@@ -219,9 +224,10 @@
                     </td>
                     <td>${formatDate(ticket.created_at)}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="openTicket(${ticket.id})">
+                        <button class="btn btn-sm btn-primary" onclick="openTicket(${ticket.id})" style="margin-right: 5px;">
                             Открыть
                         </button>
+                       
                     </td>
                 </tr>
             `).join('');
@@ -389,6 +395,121 @@
         function showProfile() {
             window.location.href = '/static/profile.html';
         }
+
+        // Функции для приглашения курьера
+        let selectedTicketId = null;
+        let availableCouriers = [];
+
+        async function openCourierModal(ticketId) {
+            selectedTicketId = ticketId;
+            
+            // Загружаем список активных курьеров
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('http://localhost:8000/api/employees/active-couriers', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    availableCouriers = data.couriers;
+                    displayCourierModal();
+                } else {
+                    alert('Ошибка при загрузке списка курьеров');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при загрузке списка курьеров');
+            }
+        }
+
+        function displayCourierModal() {
+            const modal = document.getElementById('courierModal');
+            const couriersList = document.getElementById('couriersList');
+            
+            if (availableCouriers.length === 0) {
+                couriersList.innerHTML = '<p style="text-align: center; color: #666;">Нет доступных курьеров</p>';
+            } else {
+                couriersList.innerHTML = availableCouriers.map(courier => `
+                    <div class="courier-item" style="padding: 10px; margin-bottom: 8px; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; transition: background-color 0.3s;" 
+                         onclick="selectCourier(${courier.id})" 
+                         onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                         onmouseout="this.style.backgroundColor='white'">
+                        <div style="font-weight: 500;">${courier.name}</div>
+                        <div style="font-size: 14px; color: #666;">@${courier.login}</div>
+                    </div>
+                `).join('');
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        async function selectCourier(courierId) {
+            const courier = availableCouriers.find(c => c.id === courierId);
+            if (!courier) return;
+
+            if (confirm(`Пригласить курьера "${courier.name}" в тикет #${selectedTicketId}?`)) {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`http://localhost:8000/api/tickets/${selectedTicketId}/invite-courier`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            courier_id: courierId
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert(result.message);
+                        closeCourierModal();
+                        loadTickets(); // Перезагружаем список тикетов
+                    } else {
+                        const errorData = await response.json();
+                        alert(errorData.detail || 'Ошибка при приглашении курьера');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    alert('Ошибка при приглашении курьера');
+                }
+            }
+        }
+
+        function closeCourierModal() {
+            document.getElementById('courierModal').style.display = 'none';
+            selectedTicketId = null;
+            availableCouriers = [];
+        }
+
+        // Закрытие модального окна при клике вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('courierModal');
+            if (event.target === modal) {
+                closeCourierModal();
+            }
+        }
+
+        // Инициализируем базовый менеджер для навигации
+        const dashboardManager = new BaseDashboardManager();
     </script>
+
+    <!-- Модальное окно для выбора курьера -->
+    <div id="courierModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; padding-bottom: 15px;">
+                <h3 style="margin: 0; color: #333;">Выберите курьера</h3>
+                <span onclick="closeCourierModal()" style="color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+            </div>
+            <div id="couriersList">
+                <div style="text-align: center; padding: 20px; color: #666;">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

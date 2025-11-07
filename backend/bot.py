@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Константы для ConversationHandler
 class States(Enum):
     CATEGORY_SELECTION = 1
+    TICKET_CONFIRMATION = 2
     # Проблемы с оплатой криптовалютой
     CRYPTO_ORDER_NUMBER = 10
     # Диспут
@@ -163,6 +164,9 @@ class ZAZABot:
                 States.CATEGORY_SELECTION: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.category_selected)
                 ],
+                States.TICKET_CONFIRMATION: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.ticket_confirmation)
+                ],
                 # Проблемы с оплатой криптовалютой
                 States.CRYPTO_ORDER_NUMBER: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.crypto_order_number)
@@ -256,6 +260,20 @@ class ZAZABot:
         await update.message.reply_text(welcome_text, reply_markup=keyboard)
         return States.CATEGORY_SELECTION
 
+    async def show_categories_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Показать меню выбора категорий"""
+        keyboard = ReplyKeyboardMarkup([
+            ["💳 Проблемы с оплатой криптовалютой"],
+            ["⚖️ Диспут"],
+            ["❓ Общие вопросы"],
+            ["💼 Трудоустройство"]
+        ], resize_keyboard=True, one_time_keyboard=True)
+        
+        await update.message.reply_text(
+            "Пожалуйста, выберите тематику вашего вопроса:",
+            reply_markup=keyboard
+        )
+
     async def category_selected(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Обработчик выбора категории"""
         user_id = update.effective_user.id
@@ -265,82 +283,140 @@ class ZAZABot:
             await update.message.reply_text("Произошла ошибка. Пожалуйста, начните заново с /start")
             return ConversationHandler.END
         
-        if category_text == "💳 Проблемы с оплатой криптовалютой":
-            self.ticket_data[user_id].category = "crypto_payment"
-            
-            # Создаем тикет сразу при выборе категории
-            ticket_id = await self.create_ticket(user_id, "crypto_payment")
-            
-            await update.message.reply_text(
-                f"💳 **Проблемы с оплатой криптовалютой #{ticket_id}**\n\n"
-                f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
-                f"Укажите номер заказа, TXID (хэш) транзакции вашей на наш адрес:",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            
-            # Сохраняем ID тикета
-            self.ticket_data[user_id].data['ticket_id'] = ticket_id
-            return States.CRYPTO_ORDER_NUMBER
-            
-        elif category_text == "⚖️ Диспут":
-            self.ticket_data[user_id].category = "dispute"
-            
-            # Создаем тикет сразу при выборе категории
-            ticket_id = await self.create_ticket(user_id, "dispute")
-            
-            await update.message.reply_text(
-                f"⚖️ **Диспут #{ticket_id}**\n\n"
-                f"Для того чтобы мы могли разобраться в вашей проблеме и принять по ней решение просим вас указать:\n"
-                f"• **Номер заказа**\n"
-                f"• **Описать проблему** одним сообщением\n"
-                f"• **Приложить фотографии и видео** с распаковки посылки\n\n"
-                f"Вы можете отправлять несколько сообщений. Все они будут сохранены в тикете.",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            
-            # Сохраняем ID тикета
-            self.ticket_data[user_id].data['ticket_id'] = ticket_id
-            return States.DISPUTE_MESSAGES
-            
-        elif category_text == "❓ Общие вопросы":
-            self.ticket_data[user_id].category = "general"
-            
-            # Создаем тикет сразу при выборе категории
-            ticket_id = await self.create_ticket(user_id, "general")
-            
-            await update.message.reply_text(
-                f"❓ **Общие вопросы #{ticket_id}**\n\n"
-                f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
-                f"Напишите свой вопрос и ожидайте когда вам ответят:",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            
-            # Сохраняем ID тикета
-            self.ticket_data[user_id].data['ticket_id'] = ticket_id
-            return States.GENERAL_QUESTION
-            
-        elif category_text == "💼 Трудоустройство":
-            self.ticket_data[user_id].category = "employment"
-            
-            # Создаем тикет сразу при выборе категории
-            ticket_id = await self.create_ticket(user_id, "employment")
-            
-            await update.message.reply_text(
-                f"💼 **Трудоустройство #{ticket_id}**\n\n"
-                f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
-                f"Распишите должность на которую хотите, опыт работы и все что считаете нужным:",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            
-            # Сохраняем ID тикета
-            self.ticket_data[user_id].data['ticket_id'] = ticket_id
-            return States.JOB_ABOUT
+        # Определяем категорию и описание
+        category_info = {
+            "💳 Проблемы с оплатой криптовалютой": {
+                "key": "crypto_payment",
+                "emoji": "💳",
+                "title": "Проблемы с оплатой криптовалютой"
+            },
+            "⚖️ Диспут": {
+                "key": "dispute", 
+                "emoji": "⚖️",
+                "title": "Диспут"
+            },
+            "❓ Общие вопросы": {
+                "key": "general",
+                "emoji": "❓", 
+                "title": "Общие вопросы"
+            },
+            "💼 Трудоустройство": {
+                "key": "job",
+                "emoji": "💼",
+                "title": "Трудоустройство"
+            }
+        }
         
-        else:
-            await update.message.reply_text(
-                "Пожалуйста, выберите категорию из предложенных вариантов."
-            )
+        if category_text not in category_info:
+            await update.message.reply_text("❌ Неизвестная категория. Выберите из предложенных вариантов.")
             return States.CATEGORY_SELECTION
+        
+        # Сохраняем выбранную категорию
+        selected_category = category_info[category_text]
+        self.ticket_data[user_id].category = selected_category["key"]
+        
+        # Создаем клавиатуру подтверждения
+        keyboard = [
+            ["✅ Подтвердить открытие тикета"],
+            ["❌ Отмена"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        
+        # Отправляем сообщение с подтверждением
+        await update.message.reply_text(
+            f"🎫 **Подтверждение создания тикета**\n\n"
+            f"{selected_category['emoji']} **Тема:** {selected_category['title']}\n\n"
+            f"⚠️ **ВНИМАНИЕ!**\n"
+            f"• После открытия тикета закрыть его нельзя\n"
+            f"• Создание пустых/фейковых тикетов карается **баном**\n"
+            f"• Убедитесь, что у вас есть реальный вопрос или проблема\n\n"
+            f"Вы уверены, что хотите открыть тикет?",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        
+        return States.TICKET_CONFIRMATION
+
+    async def ticket_confirmation(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Обработчик подтверждения создания тикета"""
+        user_id = update.effective_user.id
+        response_text = update.message.text
+        
+        if user_id not in self.ticket_data:
+            await update.message.reply_text("Произошла ошибка. Пожалуйста, начните заново с /start")
+            return ConversationHandler.END
+        
+        if response_text == "✅ Подтвердить открытие тикета":
+            # Создаем тикет
+            category = self.ticket_data[user_id].category
+            ticket_id = await self.create_ticket(user_id, category)
+            
+            # Сохраняем ID тикета
+            self.ticket_data[user_id].data['ticket_id'] = ticket_id
+            
+            # Направляем в соответствующий поток в зависимости от категории
+            if category == "crypto_payment":
+                await update.message.reply_text(
+                    f"💳 **Проблемы с оплатой криптовалютой #{ticket_id}**\n\n"
+                    f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                    f"Укажите номер заказа, TXID (хэш) транзакции вашей на наш адрес:",
+                    reply_markup=ReplyKeyboardRemove(),
+                    parse_mode='Markdown'
+                )
+                return States.CRYPTO_ORDER_NUMBER
+                
+            elif category == "dispute":
+                await update.message.reply_text(
+                    f"⚖️ **Диспут #{ticket_id}**\n\n"
+                    f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                    f"Для того чтобы мы могли разобраться в вашей проблеме и принять по ней решение просим вас указать:\n"
+                    f"• **Номер заказа**\n"
+                    f"• **Описать проблему** одним сообщением\n"
+                    f"• **Приложить фотографии и видео** с распаковки посылки\n\n"
+                    f"Вы можете отправлять несколько сообщений. Все они будут сохранены в тикете.",
+                    reply_markup=ReplyKeyboardRemove(),
+                    parse_mode='Markdown'
+                )
+                return States.DISPUTE_MESSAGES
+                
+            elif category == "general":
+                await update.message.reply_text(
+                    f"❓ **Общие вопросы #{ticket_id}**\n\n"
+                    f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                    f"Напишите свой вопрос и ожидайте когда вам ответят:",
+                    reply_markup=ReplyKeyboardRemove(),
+                    parse_mode='Markdown'
+                )
+                return States.GENERAL_QUESTION
+                
+            elif category == "job":
+                await update.message.reply_text(
+                    f"💼 **Трудоустройство #{ticket_id}**\n\n"
+                    f"✅ Ваш тикет #{ticket_id} зарегистрирован!\n\n"
+                    f"Распишите должность на которую хотите, опыт работы и все что считаете нужным:",
+                    reply_markup=ReplyKeyboardRemove(),
+                    parse_mode='Markdown'
+                )
+                return States.JOB_ABOUT
+                
+        elif response_text == "❌ Отмена":
+            # Возвращаем к выбору категории
+            await self.show_categories_menu(update, context)
+            return States.CATEGORY_SELECTION
+            
+        else:
+            # Неправильный выбор
+            keyboard = [
+                ["✅ Подтвердить открытие тикета"],
+                ["❌ Отмена"]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+            
+            await update.message.reply_text(
+                "Пожалуйста, выберите один из предложенных вариантов:",
+                reply_markup=reply_markup
+            )
+            return States.TICKET_CONFIRMATION
 
     # === ОБРАБОТЧИКИ ДЛЯ КАТЕГОРИИ "ПРОБЛЕМЫ С ОПЛАТОЙ КРИПТОВАЛЮТОЙ" ===
     

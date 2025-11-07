@@ -319,49 +319,49 @@
         <nav class="sidebar-nav">
             <ul>
                 <li class="nav-item">
-                    <a href="/static/dashboard.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="dashboard" id="nav-dashboard">
                         <span>🏠</span>
                         <span>Главная</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tgbot.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="tgbot" id="nav-tgbot">
                         <span>🤖</span>
                         <span>Телеграмм боты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/employees.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="employees" id="nav-employees">
                         <span>👥</span>
                         <span>Сотрудники</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/clients.html" class="nav-link active">
+                    <a href="#" class="nav-link active" data-section="clients" id="nav-clients">
                         <span>👤</span>
                         <span>Клиенты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tickets.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="tickets" id="nav-tickets">
                         <span>🎯</span>
                         <span>Активные тикеты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/archive.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="archive" id="nav-archive">
                         <span>📋</span>
                         <span>Архив тикетов</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/chat.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="chat" id="nav-chat">
                         <span>💬</span>
                         <span>Чат сотрудников</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/notes.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="notes" id="nav-notes">
                         <span>📝</span>
                         <span>Заметки</span>
                     </a>
@@ -948,6 +948,9 @@
         function getToken() {
             return localStorage.getItem('access_token') || localStorage.getItem('token');
         }
+
+        // Инициализируем базовый менеджер для навигации
+        const dashboardManager = new BaseDashboardManager();
     </script>
 
     <!-- Модальное окно для просмотра изображений -->

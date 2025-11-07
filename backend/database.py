@@ -47,8 +47,10 @@ class Employee(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     login = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
-    role = Column(String, nullable=False)
+    name = Column(String, nullable=False)  # Отображаемое имя
+    role = Column(String, nullable=False)  # admin, operator, courier
+    hashed_password = Column(String, nullable=False)  # Хэшированный пароль
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -62,6 +64,7 @@ class ActiveTicket(Base):
     telegram_user_id = Column(String, nullable=False)  # ID пользователя в Telegram
     telegram_username = Column(String)  # Username пользователя в Telegram
     assigned_to = Column(Integer, ForeignKey("employees.id"))
+    courier_id = Column(Integer, ForeignKey("employees.id"), nullable=True)  # Приглашенный курьер
     status = Column(String, default="active")  # active, in_work, archive
     resolution = Column(String, default="in_work")  # in_work, refuse, refund
     note = Column(Text)  # Заметка админа
@@ -70,7 +73,8 @@ class ActiveTicket(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    employee = relationship("Employee")
+    employee = relationship("Employee", foreign_keys=[assigned_to])
+    courier = relationship("Employee", foreign_keys=[courier_id])
     bot = relationship("TelegramBot")
 
 class ArchiveTicket(Base):
@@ -80,11 +84,13 @@ class ArchiveTicket(Base):
     title = Column(String, nullable=False)
     description = Column(Text)
     assigned_to = Column(Integer, ForeignKey("employees.id"))
+    courier_id = Column(Integer, ForeignKey("employees.id"), nullable=True)  # Приглашенный курьер
     status = Column(String, default="closed")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    employee = relationship("Employee")
+    employee = relationship("Employee", foreign_keys=[assigned_to])
+    courier = relationship("Employee", foreign_keys=[courier_id])
 
 class EmployeeChat(Base):
     __tablename__ = "employee_chat"
@@ -121,6 +127,8 @@ class TicketMessage(Base):
     original_filename = Column(String)  # Оригинальное имя файла
     file_size = Column(Integer)  # Размер файла в байтах
     is_from_admin = Column(Boolean, default=False)  # Сообщение от админа или клиента
+    sender_role = Column(String, nullable=True)  # Роль отправителя (admin, operator, courier)
+    sender_name = Column(String, nullable=True)  # Имя отправителя
     created_at = Column(DateTime, default=datetime.utcnow)
     
     ticket = relationship("ActiveTicket")

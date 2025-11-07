@@ -61,43 +61,49 @@
         <nav class="sidebar-nav">
             <ul>
                 <li class="nav-item">
-                    <a href="/static/dashboard.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="dashboard" id="nav-dashboard">
                         <span>🏠</span>
                         <span>Главная</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tgbot.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="tgbot" id="nav-tgbot">
                         <span>🤖</span>
                         <span>Телеграмм боты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/employees.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="employees" id="nav-employees">
                         <span>👥</span>
                         <span>Сотрудники</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/tickets.html" class="nav-link">
+                    <a href="#" class="nav-link" data-section="clients" id="nav-clients">
+                        <span>👤</span>
+                        <span>Клиенты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="tickets" id="nav-tickets">
                         <span>🎯</span>
                         <span>Активные тикеты</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/static/archive.html" class="nav-link active">
+                    <a href="#" class="nav-link active" data-section="archive" id="nav-archive">
                         <span>📋</span>
                         <span>Архив тикетов</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="chat">
+                    <a href="#" class="nav-link" data-section="chat" id="nav-chat">
                         <span>💬</span>
                         <span>Чат сотрудников</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="notes">
+                    <a href="#" class="nav-link" data-section="notes" id="nav-notes">
                         <span>📝</span>
                         <span>Заметки</span>
                     </a>
@@ -291,11 +297,40 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${messages.map(message => `
+                            ${messages.map(message => {
+                                // Определяем роль и цвета
+                                let roleText = 'Клиент';
+                                let bgColor = '#e3f2fd';
+                                let textColor = '#1976d2';
+                                
+                                if (message.is_from_admin) {
+                                    if (message.sender_role === 'admin') {
+                                        roleText = 'Администратор';
+                                        bgColor = '#f3e5f5';
+                                        textColor = '#7b1fa2';
+                                    } else if (message.sender_role === 'operator') {
+                                        roleText = 'Оператор';
+                                        bgColor = '#e0f2f1';
+                                        textColor = '#00695c';
+                                    } else if (message.sender_role === 'courier') {
+                                        roleText = 'Курьер';
+                                        bgColor = '#fff3e0';
+                                        textColor = '#ef6c00';
+                                    } else {
+                                        // Fallback для старых сообщений без роли
+                                        roleText = 'Сотрудник';
+                                        bgColor = '#f3e5f5';
+                                        textColor = '#7b1fa2';
+                                    }
+                                } else {
+                                    roleText = `@${ticket.telegram_username || 'Клиент'}`;
+                                }
+                                
+                                return `
                                 <tr>
                                     <td>
-                                        <span class="status-badge" style="background-color: ${message.is_from_admin ? '#f3e5f5' : '#e3f2fd'}; color: ${message.is_from_admin ? '#7b1fa2' : '#1976d2'};">
-                                            ${message.is_from_admin ? 'Администратор' : `@${ticket.telegram_username || 'Клиент'}`}
+                                        <span class="status-badge" style="background-color: ${bgColor}; color: ${textColor};">
+                                            ${roleText}
                                         </span>
                                     </td>
                                     <td>
@@ -304,8 +339,8 @@
                                         </div>
                                     </td>
                                     <td>${formatDate(message.created_at)}</td>
-                                </tr>
-                            `).join('')}
+                                </tr>`;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -454,11 +489,14 @@
         }
 
         // Закрытие модального окна по нажатию ESC
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
                 closeImageModal();
             }
         });
+
+        // Инициализируем базовый менеджер для навигации
+        const dashboardManager = new BaseDashboardManager();
     </script>
 
     <!-- Модальное окно для просмотра изображений -->

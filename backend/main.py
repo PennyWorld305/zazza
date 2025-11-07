@@ -229,33 +229,67 @@ async def static_profile():
 
 @app.post("/api/login", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
+    # Сначала ищем среди User (админов)
     user = db.query(User).filter(User.username == user_data.username).first()
-    if not user or not verify_password(user_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный логин или пароль",
-            headers={"WWW-Authenticate": "Bearer"},
+    if user and verify_password(user_data.password, user.hashed_password):
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username, "type": "user", "id": user.id}, 
+            expires_delta=access_token_expires
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Если не найден среди User, ищем среди Employee (сотрудников)
+    employee = db.query(Employee).filter(Employee.login == user_data.username).first()
+    if employee and employee.is_active and verify_password(user_data.password, employee.hashed_password):
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": employee.login, "type": "employee", "id": employee.id, "role": employee.role}, 
+            expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Если никого не найдено
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Неверный логин или пароль",
+        headers={"WWW-Authenticate": "Bearer"},
     )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 # Убираем эндпоинт регистрации - создаем пользователей только через админа
 
 @app.get("/api/me")
 def read_users_me(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == current_user["username"]).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    if current_user["type"] == "user":
+        user = db.query(User).filter(User.username == current_user["username"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name or user.username,
+            "is_active": user.is_active,
+            "type": "user",
+            "role": "admin"
+        }
     
-    return {
-        "id": user.id,
-        "username": user.username,
-        "display_name": user.display_name or user.username,
-        "is_active": user.is_active
-    }
+    elif current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        return {
+            "id": employee.id,
+            "username": employee.login,
+            "display_name": employee.name,
+            "is_active": employee.is_active,
+            "type": "employee",
+            "role": employee.role
+        }
+    
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
 
 @app.put("/api/profile/update")
 def update_profile(
@@ -401,7 +435,15 @@ def toggle_bot_status(bot_id: int, current_user: dict = Depends(get_current_user
 @app.get("/api/tickets")
 def get_active_tickets(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Получить список активных тикетов"""
-    tickets = db.query(ActiveTicket).filter(ActiveTicket.status != "archive").all()
+    query = db.query(ActiveTicket).filter(ActiveTicket.status != "archive")
+    
+    # Если пользователь - курьер, показываем только те тикеты, куда он приглашен
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            query = query.filter(ActiveTicket.courier_id == employee.id)
+    
+    tickets = query.all()
     
     result = []
     for ticket in tickets:
@@ -424,7 +466,15 @@ def get_active_tickets(db: Session = Depends(get_db), current_user: dict = Depen
 @app.get("/api/tickets/archive")
 def get_archive_tickets(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Получить список архивных тикетов"""
-    tickets = db.query(ActiveTicket).filter(ActiveTicket.status == "archive").all()
+    query = db.query(ActiveTicket).filter(ActiveTicket.status == "archive")
+    
+    # Если пользователь - курьер, показываем только те тикеты, куда он приглашен
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            query = query.filter(ActiveTicket.courier_id == employee.id)
+    
+    tickets = query.all()
     
     result = []
     for ticket in tickets:
@@ -510,11 +560,41 @@ def get_ticket_details(ticket_id: int, db: Session = Depends(get_db), current_us
     if not ticket:
         raise HTTPException(status_code=404, detail="Тикет не найден")
     
+    # Если пользователь - курьер, проверяем доступ к тикету
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            if ticket.courier_id != employee.id:
+                raise HTTPException(status_code=403, detail="Доступ запрещен. Вы не приглашены к этому тикету")
+    
     # Получаем сообщения тикета
     messages = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).order_by(TicketMessage.created_at).all()
     
     messages_data = []
     for msg in messages:
+        # Определяем имя отправителя и роль
+        sender_name = "Клиент"
+        sender_role = "client"
+        
+        if msg.is_from_admin:
+            if msg.telegram_user_id == "admin":
+                sender_name = "Админ"
+                sender_role = "admin"
+            elif msg.telegram_user_id.startswith("employee_"):
+                # Извлекаем ID сотрудника и получаем его имя и роль
+                employee_id = msg.telegram_user_id.replace("employee_", "")
+                try:
+                    employee = db.query(Employee).filter(Employee.id == int(employee_id)).first()
+                    if employee:
+                        sender_name = employee.name
+                        sender_role = employee.role  # admin, operator, courier
+                    else:
+                        sender_name = "Сотрудник"
+                        sender_role = "employee"
+                except:
+                    sender_name = "Сотрудник" 
+                    sender_role = "employee"
+        
         messages_data.append({
             "id": msg.id,
             "telegram_user_id": msg.telegram_user_id,
@@ -525,6 +605,8 @@ def get_ticket_details(ticket_id: int, db: Session = Depends(get_db), current_us
             "original_filename": msg.original_filename,
             "file_size": msg.file_size,
             "is_from_admin": msg.is_from_admin,
+            "sender_name": sender_name,
+            "sender_role": sender_role,
             "created_at": msg.created_at.isoformat() if msg.created_at else None
         })
     
@@ -555,6 +637,12 @@ def update_ticket(ticket_id: int, request: UpdateTicketRequest, db: Session = De
     ticket = db.query(ActiveTicket).filter(ActiveTicket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Тикет не найден")
+    
+    # Если пользователь - курьер, запрещаем обновление тикета
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            raise HTTPException(status_code=403, detail="Доступ запрещен. Курьеры не могут изменять тикеты")
     
     # Сохраняем старый статус для проверки изменений
     old_status = ticket.status
@@ -619,25 +707,67 @@ class SendMessageRequest(BaseModel):
     
 @app.post("/api/tickets/{ticket_id}/messages")
 def send_message_to_ticket(ticket_id: int, request: SendMessageRequest, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    """Отправить сообщение в тикет от админа"""
+    """Отправить сообщение в тикет от админа или сотрудника"""
     ticket = db.query(ActiveTicket).filter(ActiveTicket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Тикет не найден")
     
-    # Создаем сообщение от админа
+    # Если пользователь - курьер, проверяем доступ к тикету
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            if ticket.courier_id != employee.id:
+                raise HTTPException(status_code=403, detail="Доступ запрещен. Вы не приглашены к этому тикету")
+    
+    # Определяем отправителя сообщения и роль
+    sender_role = None
+    sender_name = None
+    
+    if current_user["type"] == "user":
+        # Сообщение от админа
+        sender_id = "admin"
+        sender_role = "admin"
+        sender_name = "Админ"
+        is_from_admin = True
+    else:
+        # Сообщение от сотрудника
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee:
+            sender_id = f"employee_{employee.id}"
+            sender_role = employee.role
+            sender_name = employee.name
+            is_from_admin = True
+        else:
+            sender_id = current_user["username"]
+            sender_role = "admin"  # fallback
+            sender_name = "Админ"
+            is_from_admin = True
+    
+    # Формируем сообщение с указанием роли для клиента
+    role_display = {
+        "admin": "Админ",
+        "operator": "Оператор", 
+        "courier": "Курьер"
+    }.get(sender_role, "Сотрудник")
+    
+    formatted_message = f"{role_display}:\n\n{request.content}"
+    
+    # Создаем сообщение в БД
     message = TicketMessage(
         ticket_id=ticket_id,
-        telegram_user_id="admin",
+        telegram_user_id=sender_id,
         message_type=request.message_type,
         content=request.content,
-        is_from_admin=True
+        is_from_admin=is_from_admin,
+        sender_role=sender_role,
+        sender_name=sender_name
     )
     
     db.add(message)
     db.commit()
     
-    # Отправляем сообщение пользователю через Telegram Bot API
-    success = send_telegram_message(ticket.telegram_user_id, request.content, db)
+    # Отправляем форматированное сообщение пользователю через Telegram Bot API
+    success = send_telegram_message(ticket.telegram_user_id, formatted_message, db)
     
     if success:
         return {"message": "Сообщение отправлено"}
@@ -858,7 +988,9 @@ class NoteUpdate(BaseModel):
 def get_notes(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Получить все заметки текущего пользователя"""
     
-    notes = db.query(Note).filter(Note.user_id == current_user["id"]).order_by(Note.updated_at.desc()).all()
+    # Для User используем user_id, для Employee - тоже id (но будем хранить в user_id)
+    user_id = current_user["id"]
+    notes = db.query(Note).filter(Note.user_id == user_id).order_by(Note.updated_at.desc()).all()
     
     notes_data = []
     for note in notes:
@@ -876,8 +1008,9 @@ def get_notes(db: Session = Depends(get_db), current_user: dict = Depends(get_cu
 def create_note(note_data: NoteCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Создать новую заметку"""
     
+    user_id = current_user["id"]
     note = Note(
-        user_id=current_user["id"],
+        user_id=user_id,
         title=note_data.title,
         content=note_data.content
     )
@@ -933,6 +1066,293 @@ def delete_note(note_id: int, db: Session = Depends(get_db), current_user: dict 
     db.commit()
     
     return {"message": "Заметка удалена успешно"}
+
+# === СОТРУДНИКИ ===
+
+class EmployeeCreate(BaseModel):
+    login: str
+    name: str
+    role: str
+    password: str
+
+class EmployeeUpdate(BaseModel):
+    login: Optional[str] = None
+    name: str
+    role: str
+    is_active: bool
+    password: Optional[str] = None
+
+class EmployeePasswordUpdate(BaseModel):
+    password: str
+
+@app.get("/api/employees")
+def get_employees(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Получить список всех сотрудников (только для админов)"""
+    
+    # Проверяем права доступа - админы и операторы могут видеть список сотрудников
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            raise HTTPException(status_code=403, detail="Доступ запрещен. Курьеры не могут просматривать список сотрудников.")
+    elif current_user["type"] != "user":
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуются права администратора или оператора.")
+    
+    # Получаем всех сотрудников
+    employees = db.query(Employee).order_by(Employee.created_at.desc()).all()
+    
+    employees_data = []
+    for employee in employees:
+        employees_data.append({
+            "id": employee.id,
+            "login": employee.login,
+            "name": employee.name,
+            "role": employee.role,
+            "is_active": employee.is_active,
+            "created_at": employee.created_at.isoformat() if employee.created_at else None,
+            "updated_at": employee.updated_at.isoformat() if employee.updated_at else None
+        })
+    
+    return {"employees": employees_data}
+
+@app.post("/api/employees")
+def create_employee(employee_data: EmployeeCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Создать нового сотрудника (админы - всех, операторы - только курьеров)"""
+    
+    # Проверяем права доступа
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "operator":
+            # Операторы могут создавать только курьеров
+            if employee_data.role != "courier":
+                raise HTTPException(status_code=403, detail="Операторы могут создавать только курьеров")
+        elif employee and employee.role == "courier":
+            raise HTTPException(status_code=403, detail="Курьеры не могут создавать сотрудников")
+    elif current_user["type"] != "user":
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    # Проверяем, что логин уникален
+    existing_employee = db.query(Employee).filter(Employee.login == employee_data.login).first()
+    if existing_employee:
+        raise HTTPException(status_code=400, detail="Сотрудник с таким логином уже существует")
+    
+    # Валидация роли
+    if employee_data.role not in ["admin", "operator", "courier"]:
+        raise HTTPException(status_code=400, detail="Недопустимая роль. Доступны: admin, operator, courier")
+    
+    # Хэшируем пароль
+    hashed_password = get_password_hash(employee_data.password)
+    
+    # Создаем сотрудника
+    employee = Employee(
+        login=employee_data.login,
+        name=employee_data.name,
+        role=employee_data.role,
+        hashed_password=hashed_password,
+        is_active=True
+    )
+    
+    db.add(employee)
+    db.commit()
+    db.refresh(employee)
+    
+    return {
+        "message": "Сотрудник создан успешно",
+        "employee": {
+            "id": employee.id,
+            "login": employee.login,
+            "name": employee.name,
+            "role": employee.role,
+            "is_active": employee.is_active,
+            "created_at": employee.created_at.isoformat() if employee.created_at else None
+        }
+    }
+
+@app.put("/api/employees/{employee_id}")
+def update_employee(employee_id: int, employee_data: EmployeeUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Обновить данные сотрудника (админы - всех, операторы - только курьеров)"""
+    
+    # Проверяем права доступа
+    if current_user["type"] == "employee":
+        current_employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if current_employee and current_employee.role == "operator":
+            # Операторы могут редактировать только курьеров
+            target_employee = db.query(Employee).filter(Employee.id == employee_id).first()
+            if target_employee and target_employee.role != "courier":
+                raise HTTPException(status_code=403, detail="Операторы могут редактировать только курьеров")
+            # Операторы не могут изменять роль на не-курьера
+            if employee_data.role and employee_data.role != "courier":
+                raise HTTPException(status_code=403, detail="Операторы могут устанавливать только роль курьера")
+        elif current_employee and current_employee.role == "courier":
+            raise HTTPException(status_code=403, detail="Курьеры не могут редактировать сотрудников")
+    elif current_user["type"] != "user":
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    # Находим сотрудника
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Валидация роли
+    if employee_data.role not in ["admin", "operator", "courier"]:
+        raise HTTPException(status_code=400, detail="Недопустимая роль. Доступны: admin, operator, courier")
+    
+    # Проверяем уникальность логина, если он изменяется
+    if employee_data.login and employee_data.login != employee.login:
+        existing_employee = db.query(Employee).filter(Employee.login == employee_data.login, Employee.id != employee_id).first()
+        if existing_employee:
+            raise HTTPException(status_code=400, detail="Сотрудник с таким логином уже существует")
+        employee.login = employee_data.login
+    
+    # Обновляем данные
+    employee.name = employee_data.name
+    employee.role = employee_data.role
+    employee.is_active = employee_data.is_active
+    
+    # Обновляем пароль если он передан
+    if employee_data.password:
+        employee.hashed_password = get_password_hash(employee_data.password)
+    
+    db.commit()
+    db.refresh(employee)
+    
+    return {
+        "message": "Данные сотрудника обновлены успешно",
+        "employee": {
+            "id": employee.id,
+            "login": employee.login,
+            "name": employee.name,
+            "role": employee.role,
+            "is_active": employee.is_active,
+            "updated_at": employee.updated_at.isoformat() if employee.updated_at else None
+        }
+    }
+
+@app.put("/api/employees/{employee_id}/password")
+def update_employee_password(employee_id: int, password_data: EmployeePasswordUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Обновить пароль сотрудника (только для админов)"""
+    
+    # Проверяем права доступа
+    if not (current_user["type"] == "user"):
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    # Находим сотрудника
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Хэшируем новый пароль
+    employee.hashed_password = get_password_hash(password_data.password)
+    
+    db.commit()
+    
+    return {"message": "Пароль сотрудника обновлен успешно"}
+
+@app.delete("/api/employees/{employee_id}")
+def delete_employee(employee_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Удалить сотрудника (только для админов)"""
+    
+    # Проверяем права доступа
+    if not (current_user["type"] == "user"):
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    # Находим сотрудника
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Не даем удалить админа
+    if employee.role == "admin":
+        raise HTTPException(status_code=400, detail="Нельзя удалить администратора")
+    
+    # Удаляем сотрудника
+    db.delete(employee)
+    db.commit()
+    
+    return {"message": "Сотрудник удален успешно"}
+
+@app.get("/api/employees/active-couriers")
+def get_active_couriers(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """Получить список активных курьеров для приглашения в тикет"""
+    
+    couriers = db.query(Employee).filter(
+        Employee.role == "courier",
+        Employee.is_active == True
+    ).order_by(Employee.name).all()
+    
+    couriers_data = []
+    for courier in couriers:
+        couriers_data.append({
+            "id": courier.id,
+            "name": courier.name,
+            "login": courier.login
+        })
+    
+    return {"couriers": couriers_data}
+
+@app.post("/api/tickets/{ticket_id}/invite-courier")
+def invite_courier_to_ticket(
+    ticket_id: int, 
+    courier_data: dict,
+    db: Session = Depends(get_db), 
+    current_user: dict = Depends(get_current_user)
+):
+    """Пригласить курьера в тикет (только для операторов и админов)"""
+    
+    # Проверяем, что пользователь не курьер
+    if current_user["type"] == "employee":
+        employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+        if employee and employee.role == "courier":
+            raise HTTPException(status_code=403, detail="Доступ запрещен. Курьеры не могут приглашать других курьеров")
+    
+    # Находим тикет
+    ticket = db.query(ActiveTicket).filter(ActiveTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Тикет не найден")
+    
+    # Проверяем курьера
+    courier_id = courier_data.get("courier_id")
+    courier = db.query(Employee).filter(
+        Employee.id == courier_id,
+        Employee.role == "courier",
+        Employee.is_active == True
+    ).first()
+    
+    if not courier:
+        raise HTTPException(status_code=404, detail="Курьер не найден или неактивен")
+    
+    # Приглашаем курьера
+    ticket.courier_id = courier_id
+    db.commit()
+    
+    # Отправляем уведомление клиенту о назначении курьера
+    try:
+        # Определяем кто назначает курьера для правильного отображения роли
+        if current_user["type"] == "user":
+            role_display = "Админ"
+        else:
+            employee = db.query(Employee).filter(Employee.login == current_user["username"]).first()
+            if employee and employee.role == "operator":
+                role_display = "Оператор"
+            else:
+                role_display = "Админ"
+        
+        notification_message = f"{role_display}:\n\n📦 К вашему тикету #{ticket_id} был назначен курьер для решения проблемы.\n\nКурьер свяжется с вами в ближайшее время."
+        
+        send_telegram_message(
+            user_id=ticket.telegram_user_id,
+            message=notification_message,
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки уведомления клиенту о назначении курьера: {e}")
+    
+    return {
+        "message": f"Курьер {courier.name} приглашен в тикет #{ticket_id}",
+        "courier": {
+            "id": courier.id,
+            "name": courier.name
+        }
+    }
 
 if __name__ == "__main__":
     create_tables()

@@ -4,6 +4,15 @@ class BaseDashboardManager {
         this.apiUrl = 'http://localhost:8000/api';
         this.currentTheme = 'light';
         
+        // Ждем загрузки DOM для полной инициализации
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.initialize());
+        } else {
+            this.initialize();
+        }
+    }
+
+    initialize() {
         this.initializeAuth();
         this.initializeEventListeners();
         this.loadUserInfo();
@@ -68,6 +77,9 @@ class BaseDashboardManager {
             menuToggle.addEventListener('click', () => this.toggleSidebar());
         }
 
+        // Navigation links
+        this.initializeNavigation();
+
         // Close modals when clicking outside
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
@@ -76,10 +88,121 @@ class BaseDashboardManager {
         });
     }
 
+    initializeNavigation() {
+        // Добавляем обработчики для всех навигационных ссылок
+        const navLinks = document.querySelectorAll('.nav-link[data-section]');
+        navLinks.forEach(link => {
+            // Устанавливаем правильный href для поддержки средней кнопки мыши и контекстного меню
+            const section = link.getAttribute('data-section');
+            const url = this.getSectionUrl(section);
+            if (url) {
+                link.href = url;
+            }
+
+            // Обработчик для обычного клика (левая кнопка мыши)
+            link.addEventListener('click', (e) => {
+                // Если пользователь держит Ctrl/Cmd или нажал среднюю кнопку, не мешаем браузеру
+                if (e.ctrlKey || e.metaKey || e.which === 2) {
+                    return; // Позволяем браузеру открыть в новой вкладке
+                }
+                
+                // Обычная навигация
+                e.preventDefault();
+                this.navigateToSection(section);
+            });
+
+            // Обработчик для средней кнопки мыши (открытие в новой вкладке)
+            link.addEventListener('mousedown', (e) => {
+                if (e.which === 2) { // Средняя кнопка мыши
+                    e.preventDefault();
+                    window.open(url, '_blank');
+                }
+            });
+        });
+    }
+
+    getSectionUrl(section) {
+        // Определяем URL для каждого раздела
+        const sectionUrls = {
+            'dashboard': '/static/dashboard.html',
+            'tgbot': '/static/tgbot.html',
+            'employees': '/static/employees.html',
+            'clients': '/static/clients.html',
+            'tickets': '/static/tickets.html',
+            'archive': '/static/archive.html',
+            'chat': '/static/chat.html',
+            'notes': '/static/notes.html'
+        };
+
+        return sectionUrls[section];
+    }
+
+    navigateToSection(section) {
+        const url = this.getSectionUrl(section);
+        if (url) {
+            window.location.href = url;
+        }
+    }
+
     updateUserDisplay() {
         const usernameEl = document.getElementById('username');
         if (usernameEl && this.currentUser) {
             usernameEl.textContent = this.currentUser.display_name || this.currentUser.username;
+        }
+        
+        // Управление навигацией на основе роли
+        this.updateNavigationForRole();
+    }
+
+    updateNavigationForRole() {
+        if (!this.currentUser || !this.currentUser.role) return;
+
+        const role = this.currentUser.role;
+        
+        // Для курьера показываем только определенные разделы
+        if (role === 'courier') {
+            const allowedSections = ['tickets', 'archive', 'chat', 'notes'];
+            this.hideNavigationSections(allowedSections, false); // false = скрываем клиенты
+        }
+        // Для оператора скрываем главную и телеграмм боты
+        else if (role === 'operator') {
+            const allowedSections = ['employees', 'clients', 'tickets', 'archive', 'chat', 'notes'];
+            this.hideNavigationSections(allowedSections, true); // true = показываем клиенты
+        }
+    }
+
+    hideNavigationSections(allowedSections, showClients) {
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        navItems.forEach(item => {
+            const link = item.querySelector('.nav-link');
+            if (link) {
+                const section = link.getAttribute('data-section');
+                
+                if (section) {
+                    // Скрываем все разделы, кроме разрешенных
+                    if (!allowedSections.includes(section)) {
+                        item.style.display = 'none';
+                    } else {
+                        item.style.display = 'block';
+                    }
+                    
+                    // Специальная обработка для клиентов
+                    if (section === 'clients') {
+                        item.style.display = showClients ? 'block' : 'none';
+                    }
+                }
+            }
+        });
+        
+        // Если мы на недопустимой странице, перенаправляем на разрешенный раздел
+        const currentSection = document.querySelector('.nav-link.active')?.getAttribute('data-section');
+        if (currentSection && !allowedSections.includes(currentSection)) {
+            // Переключаем на активные тикеты
+            const ticketsLink = document.getElementById('nav-tickets');
+            if (ticketsLink) {
+                ticketsLink.click();
+            }
         }
     }
 
