@@ -207,20 +207,28 @@ class ZAZABot:
             per_chat=True
         )
         
+        # Добавляем conversation handler с высоким приоритетом
         self.application.add_handler(conversation_handler)
         
-        # Глобальный обработчик команды /start (работает всегда, даже во время разговора)
-        self.application.add_handler(CommandHandler('start', self.global_start_command))
-        
         # Обработчик сообщений в активных тикетах (когда тикет уже создан и идет общение)
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_ticket_message))
-        self.application.add_handler(MessageHandler(filters.PHOTO, self.handle_ticket_message))
-        self.application.add_handler(MessageHandler(filters.VIDEO, self.handle_ticket_message))
-        self.application.add_handler(MessageHandler(filters.Document.ALL, self.handle_ticket_message))
+        # Добавляем с низким приоритетом, чтобы не мешать ConversationHandler
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_ticket_message), group=1)
+        self.application.add_handler(MessageHandler(filters.PHOTO, self.handle_ticket_message), group=1)
+        self.application.add_handler(MessageHandler(filters.VIDEO, self.handle_ticket_message), group=1)
+        self.application.add_handler(MessageHandler(filters.Document.ALL, self.handle_ticket_message), group=1)
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Обработчик команды /start"""
         user = update.effective_user
+        
+        logger.info(f"Команда /start от пользователя {user.id} ({user.username or user.first_name})")
+        
+        # Очищаем любые предыдущие данные тикета
+        if user.id in self.ticket_data:
+            del self.ticket_data[user.id]
+        
+        # Сбрасываем состояние контекста
+        context.user_data.clear()
         
         # Проверяем наличие открытых тикетов у пользователя
         existing_ticket = await self.check_existing_ticket(user.id)
@@ -278,6 +286,8 @@ class ZAZABot:
         """Обработчик выбора категории"""
         user_id = update.effective_user.id
         category_text = update.message.text
+        
+        logger.info(f"Выбор категории пользователем {user_id}: '{category_text}'")
         
         if user_id not in self.ticket_data:
             await update.message.reply_text("Произошла ошибка. Пожалуйста, начните заново с /start")
@@ -430,6 +440,9 @@ class ZAZABot:
         
         ticket_id = self.ticket_data[user_id].data.get('ticket_id')
         
+        # Очищаем временные данные ПЕРЕД сохранением сообщения
+        del self.ticket_data[user_id]
+        
         # Сохраняем сообщение в БД
         await self.save_ticket_message(ticket_id, user_id, update.message)
         
@@ -438,8 +451,6 @@ class ZAZABot:
             f"Ожидайте ответа оператора. Мы свяжемся с вами в ближайшее время!"
         )
         
-        # Очищаем временные данные
-        del self.ticket_data[user_id]
         return ConversationHandler.END
 
     # === ОБРАБОТЧИКИ ДЛЯ КАТЕГОРИИ "ДИСПУТ" ===
@@ -698,6 +709,9 @@ class ZAZABot:
         
         ticket_id = self.ticket_data[user_id].data.get('ticket_id')
         
+        # Очищаем временные данные ПЕРЕД сохранением сообщения
+        del self.ticket_data[user_id]
+        
         # Сохраняем сообщение в БД
         await self.save_ticket_message(ticket_id, user_id, update.message)
         
@@ -706,8 +720,6 @@ class ZAZABot:
             f"Ожидайте ответа оператора. После ответа откроется полноценный чат для общения!"
         )
         
-        # Очищаем временные данные
-        del self.ticket_data[user_id]
         return ConversationHandler.END
 
     # === ОБРАБОТЧИКИ ДЛЯ КАТЕГОРИИ "ТРУДОУСТРОЙСТВО" ===
@@ -722,6 +734,9 @@ class ZAZABot:
         
         ticket_id = self.ticket_data[user_id].data.get('ticket_id')
         
+        # Очищаем временные данные ПЕРЕД сохранением сообщения
+        del self.ticket_data[user_id]
+        
         # Сохраняем сообщение в БД
         await self.save_ticket_message(ticket_id, user_id, update.message)
         
@@ -730,8 +745,6 @@ class ZAZABot:
             f"Спасибо за вашу заявку! Наш HR-менеджер свяжется с вами в ближайшее время."
         )
         
-        # Очищаем временные данные
-        del self.ticket_data[user_id]
         return ConversationHandler.END
 
     # === СЛУЖЕБНЫЕ КОМАНДЫ ===
@@ -906,20 +919,33 @@ class ZAZABot:
         await self.application.shutdown()
     
     async def global_start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Глобальный обработчик команды /start - работает всегда"""
-        # Останавливаем любой активный разговор
-        if update.effective_user.id in self.ticket_data:
-            del self.ticket_data[update.effective_user.id]
+        """Глобальный обработчик команды /start - только для сброса состояния если пользователь не в ConversationHandler"""
+        user_id = update.effective_user.id
         
+        # Проверяем, есть ли активный разговор
+        # Если есть - очищаем данные, но не обрабатываем команду (пусть ConversationHandler обработает)
+        if user_id in self.ticket_data:
+            logger.info(f"Сброс состояния разговора для пользователя {user_id}")
+            del self.ticket_data[user_id]
+            
         # Сбрасываем состояние разговора
         context.user_data.clear()
         
-        # Вызываем обычную функцию start
-        return await self.start_command(update, context)
+        # НЕ обрабатываем команду здесь - пусть ConversationHandler сделает это
     
     async def handle_ticket_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик сообщений для активных тикетов"""
         user = update.effective_user
+        
+        logger.info(f"Сообщение от пользователя {user.id}: '{update.message.text}'")
+        
+        # Проверяем, не находится ли пользователь в процессе создания нового тикета
+        if user.id in self.ticket_data:
+            # Пользователь находится в процессе создания тикета, не обрабатываем сообщение здесь
+            logger.info(f"Пользователь {user.id} в процессе создания тикета - пропускаем handle_ticket_message")
+            return
+        
+        logger.info(f"Обрабатываем сообщение от пользователя {user.id} в handle_ticket_message")
         
         # Проверяем, есть ли у пользователя активный тикет
         existing_ticket_id = await self.check_existing_ticket(user.id)

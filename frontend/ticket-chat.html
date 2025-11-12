@@ -312,8 +312,42 @@
         }
 
         .attach-btn {
-            background: #6c757d;
-            color: white;
+            background: white;
+            color: #6c757d;
+            border: 2px solid #6c757d;
+            position: relative;
+        }
+
+        .attach-btn:hover {
+            background: #f8f9fa;
+            border-color: #495057;
+            color: #495057;
+        }
+
+        .attach-btn::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(135deg);
+            width: 12px;
+            height: 12px;
+            border: 2px solid currentColor;
+            border-radius: 50% 0;
+            margin-top: -2px;
+        }
+
+        .attach-btn::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(135deg);
+            width: 6px;
+            height: 2px;
+            background: currentColor;
+            margin-top: 4px;
+            margin-left: 1px;
         }
 
         .send-btn {
@@ -795,7 +829,7 @@
                             ></textarea>
                             <div class="input-actions">
                                 <button class="input-btn attach-btn" onclick="attachFile()" title="Прикрепить файл">
-                                    📎
+                                    <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
                                 </button>
                                 <button class="input-btn send-btn" onclick="sendMessage()" title="Отправить">
                                     ➤
@@ -1128,7 +1162,91 @@
 
         // Прикрепление файла
         function attachFile() {
-            alert('Функция прикрепления файлов будет реализована позже');
+            const fileInput = document.getElementById('fileInput');
+            fileInput.click();
+        }
+
+        // Обработка выбранного файла
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Проверка размера файла (максимум 10MB)
+            const maxSize = 10 * 1024 * 1024; // 10MB в байтах
+            if (file.size > maxSize) {
+                alert('Файл слишком большой. Максимальный размер: 10MB');
+                return;
+            }
+
+            // Показать индикатор загрузки
+            const sendButton = document.querySelector('.send-btn');
+            const originalText = sendButton.innerHTML;
+            sendButton.innerHTML = '⏳';
+            sendButton.disabled = true;
+
+            try {
+                await sendFileMessage(file);
+            } catch (error) {
+                console.error('Ошибка отправки файла:', error);
+                alert('Ошибка при отправке файла');
+            } finally {
+                // Восстанавливаем кнопку
+                sendButton.innerHTML = originalText;
+                sendButton.disabled = false;
+                // Очищаем input
+                event.target.value = '';
+            }
+        }
+
+        // Отправка файла
+        async function sendFileMessage(file) {
+            const ticketId = new URLSearchParams(window.location.search).get('id');
+            const token = localStorage.getItem('token');
+            
+            // Проверяем наличие токена
+            if (!token) {
+                throw new Error('Необходимо войти в систему');
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}/send-file`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // Обновляем чат для отображения нового сообщения
+                    await updateChat();
+                } else {
+                    let errorMessage = 'Ошибка отправки файла';
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.detail || errorMessage;
+                    } catch (e) {
+                        // Если не удалось распарсить JSON, используем статус
+                        errorMessage = `Ошибка ${response.status}: ${response.statusText}`;
+                    }
+                    
+                    // Если ошибка авторизации, перенаправляем на логин
+                    if (response.status === 401) {
+                        alert('Сессия истекла. Необходимо войти в систему заново.');
+                        localStorage.removeItem('token');
+                        window.location.href = '/login.html';
+                        return;
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+            } catch (error) {
+                console.error('Ошибка отправки файла:', error);
+                throw error;
+            }
         }
 
         // Возврат к списку тикетов

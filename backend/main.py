@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -83,6 +83,53 @@ def send_telegram_message(user_id: str, message: str, db: Session) -> bool:
             
     except Exception as e:
         logger.error(f"Исключение при отправке сообщения: {e}")
+        return False
+
+async def send_file_to_telegram(user_id: str, file_path: Path, message_type: str, caption: str, db: Session) -> bool:
+    """Отправляет файл пользователю в Telegram через API бота"""
+    try:
+        # Получаем активного бота из БД
+        bot = db.query(TelegramBot).filter(TelegramBot.is_active == True).first()
+        if not bot:
+            logger.error("Не найден активный бот для отправки файла")
+            return False
+
+        # Определяем метод API в зависимости от типа файла
+        if message_type == "photo":
+            api_method = "sendPhoto"
+            file_field = "photo"
+        elif message_type == "video":
+            api_method = "sendVideo"
+            file_field = "video"
+        else:
+            api_method = "sendDocument"
+            file_field = "document"
+
+        # URL для Telegram Bot API
+        url = f"https://api.telegram.org/bot{bot.token}/{api_method}"
+
+        # Подготавливаем данные для отправки
+        data = {
+            "chat_id": user_id,
+            "caption": caption,
+            "parse_mode": "HTML"
+        }
+
+        # Открываем файл и отправляем
+        with open(file_path, "rb") as file_obj:
+            files = {file_field: file_obj}
+            
+            response = requests.post(url, data=data, files=files, timeout=30)
+
+        if response.status_code == 200:
+            logger.info(f"Файл отправлен пользователю {user_id}")
+            return True
+        else:
+            logger.error(f"Ошибка отправки файла: {response.status_code} - {response.text}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Исключение при отправке файла: {e}")
         return False
 
 # Функции для работы с медиафайлами
@@ -773,6 +820,97 @@ def send_message_to_ticket(ticket_id: int, request: SendMessageRequest, db: Sess
         return {"message": "Сообщение отправлено"}
     else:
         raise HTTPException(status_code=500, detail="Ошибка отправки сообщения в Telegram")
+
+@app.post("/api/tickets/{ticket_id}/send-file")
+async def send_file_to_ticket(
+    ticket_id: int, 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db), 
+    current_user: dict = Depends(get_current_user)
+):
+    """Отправляет файл клиенту в Telegram и сохраняет в БД"""
+    
+    # Проверяем существование тикета
+    ticket = db.query(ActiveTicket).filter(ActiveTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Тикет не найден")
+    
+    # Определяем отправителя
+    sender_id = str(current_user.get('id', 'unknown'))
+    is_from_admin = True
+    sender_role = current_user.get('role', 'admin') 
+    sender_name = current_user.get('name', 'Админ')
+    
+    try:
+        # Создаем папку для файлов, если её нет
+        backend_dir = Path(__file__).parent
+        media_dir = backend_dir / "media"
+        media_dir.mkdir(exist_ok=True)
+        
+        # Генерируем уникальное имя файла
+        file_extension = Path(file.filename).suffix if file.filename else ""
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = media_dir / unique_filename
+        
+        # Сохраняем файл
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Определяем тип сообщения по расширению файла
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+        video_extensions = {'.mp4', '.avi', '.mov', '.mkv'}
+        
+        if file_extension.lower() in image_extensions:
+            message_type = "photo"
+        elif file_extension.lower() in video_extensions:
+            message_type = "video"
+        else:
+            message_type = "document"
+        
+        # Создаем сообщение в БД
+        message = TicketMessage(
+            ticket_id=ticket_id,
+            telegram_user_id=sender_id,
+            message_type=message_type,
+            content=f"Файл: {file.filename}",
+            file_id="",  # Будет заполнено после отправки в Telegram
+            local_file_path=str(file_path.relative_to(backend_dir)),
+            original_filename=file.filename,
+            file_size=file_path.stat().st_size,
+            is_from_admin=is_from_admin,
+            sender_role=sender_role,
+            sender_name=sender_name
+        )
+        
+        db.add(message)
+        db.commit()
+        
+        # Отправляем файл в Telegram
+        success = await send_file_to_telegram(
+            user_id=ticket.telegram_user_id,
+            file_path=file_path,
+            message_type=message_type,
+            caption=f"{sender_role.capitalize()}:\n\n📎 {file.filename}",
+            db=db
+        )
+        
+        if success:
+            return {"message": "Файл отправлен"}
+        else:
+            # Удаляем сообщение из БД если не удалось отправить в Telegram
+            db.delete(message)
+            db.commit()
+            # Удаляем файл
+            if file_path.exists():
+                file_path.unlink()
+            raise HTTPException(status_code=500, detail="Ошибка отправки файла в Telegram")
+            
+    except Exception as e:
+        logger.error(f"Ошибка при отправке файла: {e}")
+        # Очищаем файл при ошибке
+        if 'file_path' in locals() and file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=500, detail=f"Ошибка при отправке файла: {str(e)}")
 
 @app.get("/api/media/{file_path:path}")
 def get_media_file(file_path: str):
