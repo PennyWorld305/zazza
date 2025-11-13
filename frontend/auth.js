@@ -1,6 +1,6 @@
 class AuthManager {
     constructor() {
-        this.apiUrl = 'http://91.229.8.214/api';
+    this.apiUrl = '/api';
         this.initializeEventListeners();
     }
 
