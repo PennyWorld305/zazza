@@ -31,7 +31,12 @@ app.add_middleware(
 
 # Static files
 import os
-frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+# В Docker контейнере frontend находится в /frontend
+if os.path.exists("/frontend"):
+    frontend_path = "/frontend"
+else:
+    # Для локальной разработки
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
 # Media files - попробуем простой подход
