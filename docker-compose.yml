@@ -13,8 +13,8 @@ services:
 
   web:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./backend/Dockerfile
     restart: unless-stopped
     env_file:
       - ./backend/.env

@@ -6,14 +6,14 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # install dependencies
-COPY ./requirements.txt /app/requirements.txt
+COPY ./backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# copy application
-COPY . /app
+# copy backend application
+COPY ./backend /app
 
 # copy frontend files to root level for access
-COPY ../frontend /frontend
+COPY ./frontend /frontend
 
 EXPOSE 8000
 
