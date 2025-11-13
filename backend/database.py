@@ -153,4 +153,11 @@ def get_db():
         db.close()
 
 def create_tables():
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        # Игнорируем ошибки дублирования индексов/таблиц
+        if "уже существует" in str(e) or "already exists" in str(e):
+            print(f"Таблицы/индексы уже существуют: {e}")
+        else:
+            raise e

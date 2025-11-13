@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import timedelta
 import uvicorn
 import requests
@@ -220,13 +220,12 @@ class UserPasswordChange(BaseModel):
     new_password: str
 
 class UserProfile(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     username: str
     display_name: Optional[str] = None
     is_active: bool
-    
-    class Config:
-        orm_mode = True
 
 # Telegram Bot models
 class TelegramBotCreate(BaseModel):
@@ -240,6 +239,8 @@ class TelegramBotUpdate(BaseModel):
     token: str
 
 class TelegramBotResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     name: str
     telegram_name: str
@@ -247,9 +248,6 @@ class TelegramBotResponse(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
-    
-    class Config:
-        orm_mode = True
 
 # Используем get_current_user из auth.py
 
