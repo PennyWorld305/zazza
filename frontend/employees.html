@@ -501,7 +501,7 @@
                 }
 
                 console.log('Отправляем запрос на получение сотрудников...');
-                const response = await fetch('http://91.229.8.214:8000/api/employees', {
+                const response = await fetch('/api/employees', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -694,11 +694,11 @@
                         editData.password = password;
                     }
                     
-                    url = `http://91.229.8.214:8000/api/employees/${editEmployeeId}`;
+                    url = `/api/employees/${editEmployeeId}`;
                     method = 'PUT';
                     body = JSON.stringify(editData);
                 } else {
-                    url = 'http://91.229.8.214:8000/api/employees';
+                    url = '/api/employees';
                     method = 'POST';
                     body = JSON.stringify({
                         login: formData.get('login'),
@@ -741,7 +741,7 @@
 
             try {
                 const token = getToken();
-                const response = await fetch(`http://91.229.8.214:8000/api/employees/${employeeId}`, {
+                const response = await fetch(`/api/employees/${employeeId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -767,7 +767,7 @@
 
             try {
                 const token = getToken();
-                const response = await fetch(`http://91.229.8.214:8000/api/employees/${employeeId}`, {
+                const response = await fetch(`/api/employees/${employeeId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -886,7 +886,7 @@
         async function loadUserProfile() {
             try {
                 const token = getToken();
-                const response = await fetch('http://91.229.8.214:8000/api/me', {
+                const response = await fetch('/api/me', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

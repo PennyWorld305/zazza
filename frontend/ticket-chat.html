@@ -1567,7 +1567,7 @@
         async function openCourierModal() {
             try {
                 const token = getToken();
-                const response = await fetch('http://91.229.8.214:8000/api/employees/active-couriers', {
+                const response = await fetch('/api/employees/active-couriers', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -1614,7 +1614,7 @@
             if (confirm(`Пригласить курьера "${courier.name}" в данный тикет?`)) {
                 try {
                     const token = getToken();
-                    const response = await fetch(`http://91.229.8.214:8000/api/tickets/${ticketId}/invite-courier`, {
+                    const response = await fetch(`/api/tickets/${ticketId}/invite-courier`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

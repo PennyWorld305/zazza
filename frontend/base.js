@@ -1,7 +1,7 @@
 // Base Dashboard Manager - общие функции для всех страниц
 class BaseDashboardManager {
     constructor() {
-    this.apiUrl = 'http://91.229.8.214:8000/api';
+    this.apiUrl = '/api';
         this.currentTheme = 'light';
         
         // Ждем загрузки DOM для полной инициализации
