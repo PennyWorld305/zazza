@@ -25,6 +25,8 @@ services:
       - db
     ports:
       - "8000:8000"
+    volumes:
+      - ./frontend:/frontend:ro
 
   nginx:
     image: nginx:stable
