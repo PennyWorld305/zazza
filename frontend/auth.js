@@ -1,6 +1,6 @@
 class AuthManager {
     constructor() {
-        this.apiUrl = 'http://localhost:8000/api';
+        this.apiUrl = 'http://91.229.8.214/api';
         this.initializeEventListeners();
     }
 
@@ -196,7 +196,7 @@ async function checkAuth() {
     }
 
     try {
-        const response = await fetch('http://localhost:8000/api/me', {
+    const response = await fetch('http://91.229.8.214:8000/api/me', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }

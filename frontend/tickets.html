@@ -401,7 +401,7 @@
             // Загружаем список активных курьеров
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:8000/api/employees/active-couriers', {
+                const response = await fetch('http://91.229.8.214:8000/api/employees/active-couriers', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -448,7 +448,7 @@
             if (confirm(`Пригласить курьера "${courier.name}" в тикет #${selectedTicketId}?`)) {
                 try {
                     const token = localStorage.getItem('token');
-                    const response = await fetch(`http://localhost:8000/api/tickets/${selectedTicketId}/invite-courier`, {
+                    const response = await fetch(`http://91.229.8.214:8000/api/tickets/${selectedTicketId}/invite-courier`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

@@ -1,7 +1,7 @@
 // Bots Management - функционал для страницы tgbot.html
 class BotsManager {
     constructor() {
-        this.apiUrl = 'http://localhost:8000/api';
+    this.apiUrl = 'http://91.229.8.214:8000/api';
         this.currentBotId = null;
         this.bots = [];
         this.deleteBotId = null;

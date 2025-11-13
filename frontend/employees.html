@@ -359,12 +359,7 @@
                         <span>Архив тикетов</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link" data-section="chat" id="nav-chat">
-                        <span>💬</span>
-                        <span>Чат сотрудников</span>
-                    </a>
-                </li>
+               
                 <li class="nav-item">
                     <a href="#" class="nav-link" data-section="notes" id="nav-notes">
                         <span>📝</span>
@@ -506,7 +501,7 @@
                 }
 
                 console.log('Отправляем запрос на получение сотрудников...');
-                const response = await fetch('http://localhost:8000/api/employees', {
+                const response = await fetch('http://91.229.8.214:8000/api/employees', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -699,11 +694,11 @@
                         editData.password = password;
                     }
                     
-                    url = `http://localhost:8000/api/employees/${editEmployeeId}`;
+                    url = `http://91.229.8.214:8000/api/employees/${editEmployeeId}`;
                     method = 'PUT';
                     body = JSON.stringify(editData);
                 } else {
-                    url = 'http://localhost:8000/api/employees';
+                    url = 'http://91.229.8.214:8000/api/employees';
                     method = 'POST';
                     body = JSON.stringify({
                         login: formData.get('login'),
@@ -746,7 +741,7 @@
 
             try {
                 const token = getToken();
-                const response = await fetch(`http://localhost:8000/api/employees/${employeeId}`, {
+                const response = await fetch(`http://91.229.8.214:8000/api/employees/${employeeId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -772,7 +767,7 @@
 
             try {
                 const token = getToken();
-                const response = await fetch(`http://localhost:8000/api/employees/${employeeId}`, {
+                const response = await fetch(`http://91.229.8.214:8000/api/employees/${employeeId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -891,7 +886,7 @@
         async function loadUserProfile() {
             try {
                 const token = getToken();
-                const response = await fetch('http://localhost:8000/api/me', {
+                const response = await fetch('http://91.229.8.214:8000/api/me', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

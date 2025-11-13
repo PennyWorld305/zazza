@@ -1,6 +1,6 @@
 class DashboardManager {
     constructor() {
-        this.apiUrl = 'http://localhost:8000/api';
+    this.apiUrl = 'http://91.229.8.214:8000/api';
         this.currentTheme = 'light';
         this.currentSection = 'dashboard';
         
